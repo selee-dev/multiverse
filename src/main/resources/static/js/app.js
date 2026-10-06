@@ -886,6 +886,18 @@ function fit(c, t, w) {
 var SHD = {};
 var bg = document.createElement("canvas");
 bg.width = MAP_W; bg.height = MAP_H;
+var MAP_SCALE = 1;
+function fitMapResolution() {
+  var rc = mapEl.getBoundingClientRect(), w;
+  if (!rc.width) return;
+  w = Math.max(600, Math.min(2400, Math.round(rc.width * (window.devicePixelRatio || 1))));
+  if (w === mapEl.width) return;
+  mapEl.width = w; mapEl.height = Math.round(w * MAP_H / MAP_W);
+  bg.width = mapEl.width; bg.height = mapEl.height;
+  MAP_SCALE = w / MAP_W;
+  mctx.imageSmoothingEnabled = false;
+  paintMap();
+}
 function paintFrame(c, g, col, key, empty) {
   var rr = rng(hash(key)), tx, ty, q, k = empty ? 0.45 : 1;
   for (ty = 0; ty < g.h; ty += 16) for (tx = 0; tx < g.w; tx += 16) {
@@ -1058,7 +1070,8 @@ function paintPlazaMap(c) {
     c.lineWidth = 3; c.strokeStyle = pal.edge; c.stroke();
     c.fillStyle = s.color; c.save(); plazaRR(c, s.x, s.y, s.w, s.h, 18); c.clip(); c.fillRect(s.x, sy, s.w, 50); c.restore();
     c.fillStyle = "#ffffff30"; c.fillRect(s.x, sy, s.w, 6);
-    c.fillStyle = "#fff"; c.font = "800 24px " + font; c.textAlign = "center"; c.fillText(s.n, cx, sy + 34);
+    c.font = "700 24px " + font; c.textAlign = "center"; c.fillStyle = "rgba(0,0,0,.18)"; c.fillText(s.n, cx, sy + 35);
+    c.fillStyle = "#fff"; c.fillText(s.n, cx, sy + 34);
     for (i = 0; i < 3; i++) {
       var gx = s.x + 22 + i * 90 - (i === 1 ? 0 : 0), gw = 76, gh = 54;
       if (Math.abs(gx + gw / 2 - cx) < 50) continue;
@@ -1219,7 +1232,7 @@ function paintOfficeMap(c) {
   c.fillStyle = "#3d3732"; c.fillRect(24, 724, 912, 226);
   c.strokeStyle = "#77736d"; c.lineWidth = 2; c.strokeRect(24, 724, 912, 226);
   c.fillStyle = "#e5e1da"; c.font = "700 13px 'Apple SD Gothic Neo','Malgun Gothic','Noto Sans KR',sans-serif"; c.textAlign = "left";
-  c.fillText("프로젝트 팀 워크존", 34, 744);
+  c.fillText("프로젝트 팀 워크존", 34, 737);
   Object.keys(REGIONS).forEach(function (u) {
     var g = REGIONS[u], color = ucol(u), empty = UNI[u].hidden;
     c.fillStyle = empty ? "#33302d" : "#4b4540"; c.fillRect(g.x, g.y, g.w, g.h);
@@ -1233,7 +1246,7 @@ function paintOfficeMap(c) {
 }
 function paintMap() {
   var c = bg.getContext("2d"), F = FIELD, tx, ty, i, k, rr = rng(7), late = [], m = MEET, fx = 16, fy = 10, fw = 928, fh = 690;
-  c.imageSmoothingEnabled = false; c.globalAlpha = 1;
+  c.setTransform(MAP_SCALE, 0, 0, MAP_SCALE, 0, 0); c.imageSmoothingEnabled = false; c.globalAlpha = 1;
   FIRES = []; TORCHES = [];
   if (WORLD_THEME === "office") { paintOfficeMap(c); return; }
   if (WORLD_THEME === "plaza") { paintPlazaMap(c); return; }
@@ -1901,7 +1914,8 @@ function drawBossVisitor() {
   mctx.restore();
 }
 function draw() {
-  mctx.globalAlpha = 1; mctx.drawImage(bg, 0, 0);
+  mctx.setTransform(MAP_SCALE, 0, 0, MAP_SCALE, 0, 0);
+  mctx.globalAlpha = 1; mctx.drawImage(bg, 0, 0, MAP_W, MAP_H);
   if (WORLD_THEME === "plaza") drawPlazaLive();
   drawFires();
   if (WORLD_THEME !== "plaza") Object.keys(REGIONS).forEach(function (u) {
@@ -2021,6 +2035,8 @@ function frame(t) {
   update(dt); draw();
   requestAnimationFrame(frame);
 }
+if (window.ResizeObserver) new ResizeObserver(fitMapResolution).observe(document.getElementById("worldbox"));
+window.addEventListener("resize", fitMapResolution);
 function startMap() { if (running) return; running = true; lastT = performance.now(); requestAnimationFrame(frame); }
 
 function mapPoint(ev) {
@@ -2471,14 +2487,17 @@ function markSeen() {
   updateBadge();
 }
 function renderChatWho() {
-  var h = '<option value="">공지 작성 캐릭터</option>';
+  var who = document.getElementById("cwho"), h;
+  if (currentRole === "ADMIN") { chatMe = "admin"; who.hidden = true; who.innerHTML = ""; return; }
+  who.hidden = false;
+  h = '<option value="">공지 작성 캐릭터</option>';
   DATA.forEach(function (d) {
     var id = jobId(d);
     if (currentRole !== "ADMIN" && id !== currentCharacterId) return;
     h += '<option value="' + esc(id) + '"' + (id === chatMe ? " selected" : "") + ">" + esc(d.n) + (ttl(d) ? " · " + esc(ttl(d)) : "") + "</option>";
   });
   document.getElementById("cwho").innerHTML = h;
-  if (currentRole !== "ADMIN") chatMe = currentCharacterId || "";
+  chatMe = currentCharacterId || "";
   if (chatMe && indexOfId(chatMe) < 0) chatMe = "";
   document.getElementById("cwho").value = chatMe;
 }
@@ -2489,7 +2508,7 @@ function renderChat(forceBottom) {
   refreshForms();
   list.forEach(function (m) {
     var d = byId[m.p];
-    h += '<div class="cmsg' + (m.p === chatMe ? " me" : "") + '"><div class="cbody"><b>' + (d ? esc(d.n) : "공지") + "</b><time>" + fmtT(m.at) + "</time>" +
+    h += '<div class="cmsg' + (m.p === chatMe ? " me" : "") + '"><div class="cbody"><b>' + (d ? esc(d.n) : m.p === "admin" ? "관리자" : "공지") + "</b><time>" + fmtT(m.at) + "</time>" +
       (can && (currentRole === "ADMIN" || m.p === currentCharacterId) ? '<button type="button" class="cdel" data-id="' + esc(m.id) + '">삭제</button>' : "") + "<p>" + esc(m.t) + "</p></div></div>";
   });
   el.innerHTML = h || '<p class="tempty">등록된 공지가 없어요.</p>';
@@ -2498,6 +2517,7 @@ function renderChat(forceBottom) {
 function sendChat() {
   var inp = document.getElementById("cin"), st = document.getElementById("cstatus"), t = inp.value.trim().slice(0, 200);
   if (!currentCanAnnounce) { st.textContent = "팀장·상무급 캐릭터 또는 관리자만 공지를 등록할 수 있어요."; return; }
+  if (currentRole === "ADMIN") chatMe = "admin";
   if (!chatMe) { st.textContent = "공지 작성 캐릭터가 없습니다."; return; }
   if (!t) return;
   st.textContent = "";

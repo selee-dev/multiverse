@@ -19,7 +19,7 @@ public class DocService {
     /** 화면(js/app.js)이 쓰는 컬렉션 이름. 목록에 없는 이름은 거부합니다. */
     public static final Set<String> COLLECTIONS = Set.of(
         "people", "nicks", "titles", "skills", "stats", "health", "tasks", "pres", "ot", "seats",
-        "meetings", "projects", "snacks", "chat", "cfg", "jobs", "moves", "status");
+        "meetings", "projects", "snacks", "chat", "cfg", "jobs", "moves", "status", "pos");
 
     private static final Pattern ID = Pattern.compile("[A-Za-z0-9_-]{1,60}");
     private static final int MAX_BODY = 100_000;

@@ -34,6 +34,10 @@
     });
   }
 
+  var bootTimer = setTimeout(function () { bootDone(); }, 6000);
+  function bootDone() { clearTimeout(bootTimer); document.documentElement.classList.remove("booting"); }
+  window.bootDone = bootDone;
+
   function showStatus(message, isError) {
     status.textContent = message || "";
     status.classList.toggle("error", !!isError);
@@ -44,12 +48,12 @@
     registerForm.hidden = stage !== "register";
     characterForm.hidden = stage !== "character";
     document.getElementById("auth-switch").hidden = stage === "character";
-    var office = document.documentElement.getAttribute("data-world-theme") === "office";
-    document.getElementById("auth-eyebrow").textContent = stage === "character" ? (office ? "CREATE EMPLOYEE" : "CREATE YOUR HERO") : "MULTIVERSE ACCESS";
-    document.getElementById("auth-title").textContent = stage === "character" ? (office ? "직원을 등록하세요" : "영웅을 등록하세요") : "멀티버스로 돌아오세요";
+    var office = document.documentElement.getAttribute("data-world-theme") !== "battlefield";
+    document.getElementById("auth-eyebrow").textContent = stage === "character" ? (office ? "CREATE EMPLOYEE" : "CREATE YOUR HERO") : "METADESK ACCESS";
+    document.getElementById("auth-title").textContent = stage === "character" ? (office ? "직원을 등록하세요" : "영웅을 등록하세요") : "메타데스크로 돌아오세요";
     document.getElementById("auth-copy").textContent = stage === "character"
       ? "계정마다 캐릭터 하나를 만들 수 있어요. 캐릭터 시트는 본인과 관리자만 수정할 수 있습니다."
-      : "아이디로 접속하고, 당신의 캐릭터로 멀티버스에 합류하세요.";
+      : "아이디로 접속하고, 당신의 캐릭터로 메타데스크에 합류하세요.";
     showStatus(stage === "character" ? "계정이 만들어졌어요. 캐릭터 정보를 입력해 주세요." : "", false);
   }
 
@@ -118,12 +122,12 @@
   fetch("api/me", { credentials: "same-origin" })
     .then(function (response) { if (!response.ok) throw new Error("로그인 상태를 확인할 수 없습니다."); return response.json(); })
     .then(function (me) {
-      if (!me.user) return;
+      if (!me.user) { bootDone(); return; }
       if (me.role !== "ADMIN" && !me.hasCharacter) {
-        showStage("character");
+        showStage("character"); bootDone();
         return;
       }
       enterApp(me);
     })
-    .catch(function () { showStatus("서버에 연결할 수 없습니다. 잠시 후 다시 시도해 주세요.", true); });
+    .catch(function () { showStatus("서버에 연결할 수 없습니다. 잠시 후 다시 시도해 주세요.", true); bootDone(); });
 })();

@@ -46,22 +46,7 @@
   background-size: 48px 48px, 48px 48px, auto;
 }
 :root[data-world-theme="office"] { --lead: #d8aa6e; --map-bg: #32231d; }
-:root[data-world-theme="space"] { --lead: #55dff5; --map-bg: #050917; }
-:root[data-world-theme="space"] body {
-  background-color: #070b18;
-  background-image: radial-gradient(1px 1px at 13% 22%, #c9eaff66 50%, transparent 55%),
-    radial-gradient(1px 1px at 76% 14%, #9edfff55 50%, transparent 55%),
-    radial-gradient(1px 1px at 42% 71%, #ffffff44 50%, transparent 55%),
-    radial-gradient(1px 1px at 88% 83%, #b7d5ff55 50%, transparent 55%),
-    linear-gradient(145deg, #0c1429, #070b18 70%);
-}
-:root[data-world-theme="space"][data-ops-theme="light"] body {
-  background-color: #edf3fb;
-  background-image: radial-gradient(1px 1px at 13% 22%, #315a8866 50%, transparent 55%),
-    radial-gradient(1px 1px at 76% 14%, #46739b55 50%, transparent 55%),
-    radial-gradient(1px 1px at 42% 71%, #627a9955 50%, transparent 55%),
-    radial-gradient(1px 1px at 88% 83%, #315a8866 50%, transparent 55%);
-}
+:root[data-world-theme="plaza"] { --lead: #2ec4b6; --map-bg: #8ccb9b; }
 .hrow { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px 16px; }
 .theme-controls { display: flex; flex-wrap: wrap; align-items: center; justify-content: flex-end; gap: 8px; }
 .theme-controls .sides { margin-bottom: 0; }
@@ -567,3 +552,18 @@ input:focus-visible, select:focus-visible, textarea:focus-visible { border-color
   .portal { border-radius: 7px; padding: 10px; }
   .sheet { border-radius: 9px; padding: 14px; }
 }
+
+/* 첫 로딩: 빈 배경 + 로딩 바 */
+html.booting .auth-screen, html.booting .wrap { visibility: hidden; }
+html.booting body { overflow: hidden; }
+.boot-loader { position: fixed; inset: 0; display: grid; place-items: center; z-index: 50; pointer-events: none; }
+html:not(.booting) .boot-loader { display: none; }
+.boot-bar { position: relative; width: 220px; height: 4px; border-radius: 999px; overflow: hidden; background: color-mix(in srgb, var(--lead) 18%, transparent); }
+.boot-bar i { position: absolute; inset: 0 auto 0 0; width: 40%; border-radius: inherit; background: var(--lead); animation: boot-slide 1.1s ease-in-out infinite; }
+@keyframes boot-slide { 0% { transform: translateX(-110%); } 100% { transform: translateX(260%); } }
+@media (prefers-reduced-motion: reduce) { .boot-bar i { animation: none; width: 100%; opacity: .6; } }
+
+/* 업무 마감 기한 */
+.tdue { flex: none; margin-left: auto; padding: 1px 7px; border: 1px solid var(--line); border-radius: 999px; font-size: 11px; color: var(--muted); white-space: nowrap; }
+.ti.done .tdue { opacity: .6; text-decoration: none; }
+.jrow .tdue-in { flex: 0 1 140px; }

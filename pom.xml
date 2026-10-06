@@ -14,7 +14,7 @@
   <artifactId>hero-board-server</artifactId>
   <version>1.0.0</version>
   <name>hero-board-server</name>
-  <description>멀티버스 닉네임판 서버 (Spring Boot + MyBatis + H2)</description>
+  <description>메타데스크(metadesk) 서버 (Spring Boot + MyBatis + H2)</description>
 
   <properties>
     <java.version>21</java.version>

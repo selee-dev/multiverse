@@ -1,5 +1,5 @@
 /* 캐릭터 보드의 화면 상태, 데이터 렌더링, 편집 및 상호작용을 관리합니다. */
-var WORLD_THEME = document.documentElement.getAttribute("data-world-theme") === "space" || document.documentElement.getAttribute("data-world-theme") === "battlefield" ? document.documentElement.getAttribute("data-world-theme") : "office";
+var WORLD_THEME = document.documentElement.getAttribute("data-world-theme") === "plaza" || document.documentElement.getAttribute("data-world-theme") === "battlefield" ? document.documentElement.getAttribute("data-world-theme") : "office";
 var bgm = { context: null, gain: null, timer: null, step: 0, playing: false, enabled: true };
 try { bgm.enabled = localStorage.getItem("ops-bgm") !== "off"; } catch (e) {}
 function bgmButton() { return document.getElementById("bgm-toggle"); }
@@ -10,10 +10,10 @@ function syncBgmButton() {
 }
 function bgmTick() {
   if (!bgm.context || !bgm.gain || !bgm.playing) return;
-  var battlefield = [196, 247, 294, 330, 247, 220, 262, 330], space = [110, 165, 220, 147, 196, 247, 175, 220];
-  var notes = WORLD_THEME === "space" ? space : battlefield, frequency = notes[bgm.step % notes.length], now = bgm.context.currentTime;
+  var battlefield = [196, 247, 294, 330, 247, 220, 262, 330], plaza = [262, 330, 392, 330, 294, 349, 440, 349];
+  var notes = WORLD_THEME === "plaza" ? plaza : battlefield, frequency = notes[bgm.step % notes.length], now = bgm.context.currentTime;
   var oscillator = bgm.context.createOscillator(), volume = bgm.context.createGain();
-  oscillator.type = WORLD_THEME === "space" ? "sine" : "triangle";
+  oscillator.type = WORLD_THEME === "plaza" ? "sine" : "triangle";
   oscillator.frequency.setValueAtTime(frequency, now);
   volume.gain.setValueAtTime(0.0001, now);
   volume.gain.exponentialRampToValueAtTime(0.035, now + 0.06);
@@ -90,7 +90,7 @@ try { var rawSt = localStorage.getItem("ops-status"); if (rawSt) leaves = JSON.p
 
 var INVCAP = 14;
 var PSLOTS = ["p1", "p2", "p3"];
-var store = { tasks: {}, meetings: {}, projects: {}, titles: {}, snacks: {}, stats: {}, health: {}, chat: {}, privateChats: {}, pres: {}, skills: {}, nicks: {}, cfg: {}, ot: {}, seats: {}, people: {} };
+var store = { tasks: {}, meetings: {}, projects: {}, titles: {}, snacks: {}, stats: {}, health: {}, chat: {}, privateChats: {}, pres: {}, skills: {}, nicks: {}, cfg: {}, ot: {}, seats: {}, people: {}, pos: {} };
 var intr = [], invCount = {};
 Object.keys(store).forEach(function (c) { try { var raw = localStorage.getItem("ops-" + c); if (raw) { var o = JSON.parse(raw); store[c] = o && typeof o === "object" && !Array.isArray(o) ? o : {}; } } catch (e) { store[c] = {}; } });
 function makeExt(m, k) {
@@ -129,7 +129,8 @@ function tasksOf(d) {
   var t = store.tasks[jobId(d)];
   return t && Array.isArray(t.items) ? t.items.filter(function (x) { return x && typeof x.i === "string" && typeof x.t === "string"; }) : [];
 }
-function openTasks(d) { return tasksOf(d).filter(function (x) { return !x.d; }); }
+function taskDone(x, today) { return !!x.d || (typeof x.due === "string" && x.due < (today || todayStr())); }
+function openTasks(d) { var today = todayStr(); return tasksOf(d).filter(function (x) { return !taskDone(x, today); }); }
 function uOf(d) { var m = moves[jobId(d)]; return m && UNI[m] && !UNI[m].hidden ? m : d.u; }
 function todayStr() { var t = new Date(); return t.getFullYear() + "-" + ("0" + (t.getMonth() + 1)).slice(-2) + "-" + ("0" + t.getDate()).slice(-2); }
 function md(x) { var q = String(x).split("-"); return q.length === 3 ? (+q[1]) + "/" + (+q[2]) : x; }
@@ -289,10 +290,7 @@ function spriteRects(d, step) {
   var style = Math.floor(r() * 3);
   var crown = ["상무", "이사", "팀장"].indexOf(ttl(d)) >= 0;
   var senior = ["상무", "이사", "팀장", "부장"].indexOf(ttl(d)) >= 0;
-  var space = WORLD_THEME === "space";
-  var suits = ["#32b9db", "#e45d70", "#48b985", "#9a78d1", "#d99e39", "#4d82ce"];
-  var suit = suits[hash(d.bn || d.n) % suits.length], suitDark = "#24334e", suitLight = "#d5f7ff";
-  var pants = space ? suitDark : (f ? skin : "#2a3050");
+  var pants = f ? skin : "#2a3050";
   R(3, 19, 8, 1, "#000", 0.3);
   /* 뒷머리 */
   if (f) {
@@ -306,19 +304,11 @@ function spriteRects(d, step) {
   else if (step === 2) { R(4, 18, 3, 1, SH); R(8, 17, 3, 1, SH); }
   else { R(4, 18, 3, 1, SH); R(8, 18, 3, 1, SH); }
   /* 몸 */
-  if (space) {
-    R(2, 12, 10, 4, suitDark); R(3, 12, 8, 4, suit);
-    R(2, 13, 1, 2, suitLight); R(11, 13, 1, 2, suitLight);
-    R(4, 12, 2, 1, suitLight); R(8, 12, 2, 1, suitLight);
-    R(6, 13, 2, 2, "#f3fbff"); R(4, 16, 2, 2, suit); R(8, 16, 2, 2, suit);
-    R(4, 18, 2, 1, suitDark); R(8, 18, 2, 1, suitDark);
-  } else {
-    R(3, 12, 8, 4, OUT); R(2, 12, 1, 3, OUT); R(11, 12, 1, 3, OUT);
-    R(10, 12, 1, 4, "#000", 0.18);
-    R(2, 15, 1, 1, skin); R(11, 15, 1, 1, skin);
-    R(6, 12, 2, 1, "#fff", 0.9);
-    if (!f && senior) R(6, 13, 2, 2, "#1e2a4a");
-  }
+  R(3, 12, 8, 4, OUT); R(2, 12, 1, 3, OUT); R(11, 12, 1, 3, OUT);
+  R(10, 12, 1, 4, "#000", 0.18);
+  R(2, 15, 1, 1, skin); R(11, 15, 1, 1, skin);
+  R(6, 12, 2, 1, "#fff", 0.9);
+  if (!f && senior) R(6, 13, 2, 2, "#1e2a4a");
   /* 얼굴 */
   R(2, 2, 10, 9, skin); R(3, 11, 8, 1, skin);
   if (!f) R(2, 10, 10, 1, "#000", 0.06);
@@ -329,7 +319,6 @@ function spriteRects(d, step) {
   if (!f && style === 1 && !crown) { R(4, 0, 1, 1, hair); R(6, 0, 2, 1, hair); R(9, 0, 1, 1, hair); }
   if (f && style < 2) { R(2, 5, 1, 5, hair); R(11, 5, 1, 5, hair); }
   if (f && style === 2) { R(2, 5, 1, 2, hair); }
-  if (space) { R(2, 4, 10, 2, suitDark); R(3, 4, 8, 1, suitLight); R(3, 5, 8, 1, suit); }
   /* 눈·눈썹·입 */
   R(4, 5, 2, 1, hair); R(8, 5, 2, 1, hair);
   R(4, 6, 2, 3, "#1a1a2a"); R(8, 6, 2, 3, "#1a1a2a");
@@ -560,9 +549,10 @@ function commit(col, id, data, ok, errSel) {
 function renderTasks() {
   var box = document.getElementById("tlist");
   if (!box || openIdx === null || !DATA[openIdx]) return;
-  var items = tasksOf(DATA[openIdx]), open = items.filter(function (x) { return !x.d; }), done = items.filter(function (x) { return x.d; }), can = canEditCharacter(DATA[openIdx]), h = "";
+  var today = todayStr(), items = tasksOf(DATA[openIdx]), open = items.filter(function (x) { return !taskDone(x, today); }), done = items.filter(function (x) { return taskDone(x, today); }), can = canEditCharacter(DATA[openIdx]), h = "";
   open.concat(done).forEach(function (x) {
-    h += '<li class="ti' + (x.d ? " done" : "") + '"><label><input type="checkbox" class="tchk" data-t="' + esc(x.i) + '"' + (x.d ? " checked" : "") + (can ? "" : " disabled") + "><span>" + esc(x.t) + "</span></label>" +
+    var fin = taskDone(x, today), due = typeof x.due === "string" && /^\d{4}-\d{2}-\d{2}$/.test(x.due) ? '<span class="tdue" title="마감 기한">~' + md(x.due) + "</span>" : "";
+    h += '<li class="ti' + (fin ? " done" : "") + '"><label><input type="checkbox" class="tchk" data-t="' + esc(x.i) + '"' + (fin ? " checked" : "") + (can ? "" : " disabled") + "><span>" + esc(x.t) + "</span>" + due + "</label>" +
       (can ? '<button type="button" class="tdel" data-t="' + esc(x.i) + '" aria-label="업무 삭제">✕</button>' : "") + "</li>";
   });
   box.innerHTML = h || '<li class="tempty">등록된 업무가 없어요.</li>';
@@ -571,16 +561,40 @@ function renderTasks() {
 function saveTasks(d, items, cb) {
   commit("tasks", jobId(d), items.length ? { items: items } : null, function () { renderTasks(); syncIntruders(false); renderGrid(); if (cb) cb(); }, "#tstatus");
 }
+var dueSaving = {};
+function autoCompleteDue() {
+  var today = todayStr();
+  DATA.forEach(function (d) {
+    var id = jobId(d), items, changed;
+    if (dueSaving[id] || !canEditCharacter(d)) return;
+    items = tasksOf(d);
+    changed = items.some(function (x) { return !x.d && typeof x.due === "string" && x.due < today; });
+    if (!changed) return;
+    dueSaving[id] = true;
+    saveTasks(d, items.map(function (x) { return !x.d && typeof x.due === "string" && x.due < today ? { i: x.i, t: x.t, d: true, due: x.due } : x; }), function () { delete dueSaving[id]; });
+    setTimeout(function () { delete dueSaving[id]; }, 8000);
+  });
+}
 function addTask(text) {
   var d = DATA[openIdx], t = String(text || "").trim().slice(0, 60), items = tasksOf(d), st = document.getElementById("tstatus");
   if (!t) { st.textContent = "업무 내용을 적어주세요."; return; }
   if (items.length >= 30) { st.textContent = "업무는 한 사람당 30개까지 적을 수 있어요. 끝난 업무를 지워주세요."; return; }
   st.textContent = "";
-  saveTasks(d, items.concat([{ i: newId("t"), t: t, d: false }]), function () { var inp = document.getElementById("tin"); if (inp) { inp.value = ""; inp.focus(); } });
+  var dueEl = document.getElementById("tdue"), due = dueEl && /^\d{4}-\d{2}-\d{2}$/.test(dueEl.value) ? dueEl.value : "", item = { i: newId("t"), t: t, d: false };
+  if (due && due < todayStr()) { st.textContent = "마감 기한은 오늘 이후 날짜로 정해 주세요."; return; }
+  if (due) item.due = due;
+  saveTasks(d, items.concat([item]), function () { var inp = document.getElementById("tin"); if (inp) { inp.value = ""; inp.focus(); } if (dueEl) dueEl.value = ""; });
 }
 function toggleTask(tid, done) {
   var d = DATA[openIdx];
-  saveTasks(d, tasksOf(d).map(function (x) { return x.i === tid ? { i: x.i, t: x.t, d: !!done } : x; }));
+  var today = todayStr(), cleared = false, st = document.getElementById("tstatus");
+  saveTasks(d, tasksOf(d).map(function (x) {
+    if (x.i !== tid) return x;
+    var next = { i: x.i, t: x.t, d: !!done };
+    if (x.due && (done || x.due >= today)) next.due = x.due;
+    else if (x.due) cleared = true;
+    return next;
+  }), function () { if (cleared && st) st.textContent = "기한이 지난 업무라 마감 기한을 지웠어요."; });
 }
 function delTask(tid) {
   var d = DATA[openIdx];
@@ -684,7 +698,7 @@ function openSheet(i, opener) {
     (snackNow()[uOf(d)] ? '<div class="snkline">🍪 우리 팀 간식 당번 · ~' + md(snackNow()[uOf(d)].to) + " · " + esc(snackNow()[uOf(d)].items.join(", ")) + "</div>" : "") +
     (canEdit ? jobEditor(d) + nickEditor(d) + titleEditor(d) + skillEditor(d) + statEditor(d) + healthEditor(d) + presEditor(d) + attEditor(d) + (d.ext ? "" : moveEditor(d)) + seatEditor(d) : "") +
     '<div class="tasks"><div class="mlabel">맡은 업무<b id="tcount"></b></div><ul class="tlist" id="tlist"></ul>' +
-    (canEdit ? '<div class="jrow"><input id="tin" type="text" maxlength="60" placeholder="업무 추가 (Enter)" aria-label="업무 내용"><button type="button" class="tadd">추가</button></div>' : "") +
+    (canEdit ? '<div class="jrow"><input id="tin" type="text" maxlength="60" placeholder="업무 추가 (Enter)" aria-label="업무 내용"><input id="tdue" class="tdue-in" type="date" min="' + todayStr() + '" aria-label="마감 기한 (선택)" title="마감 기한 (선택)"><button type="button" class="tadd">추가</button></div>' : "") +
     '<div class="jstatus" id="tstatus" role="status"></div></div>' +
     '<div class="stats">' + stats + "</div>" +
     (skl(d).k ? '<div class="skill"><div class="sl">고유 스킬</div><div class="sk">' + esc(skl(d).k) + "</div>" + (skl(d).kd ? "<p>" + esc(skl(d).kd) + "</p>" : "") + "</div>" : "") +
@@ -943,98 +957,215 @@ function dirtPatch(c, rr, x, y, w, h) {
   for (k = 0; k < w * h / 240; k++) c.fillRect(x + Math.floor(rr() * (w - 3)), y + Math.floor(rr() * (h - 2)), 3, 2);
   c.fillStyle = F.dirtD; c.globalAlpha = 0.45; c.fillRect(x, y, w, 2); c.fillRect(x, y + h - 2, w, 2); c.globalAlpha = 1;
 }
-function paintSpaceMap(c) {
-  var star = rng(20261001), i, x, y, m = MEET;
-  c.fillStyle = "#050917"; c.fillRect(0, 0, MAP_W, MAP_H);
-  for (i = 0; i < 300; i++) {
-    x = 8 + Math.floor(star() * (MAP_W - 16)); y = 8 + Math.floor(star() * (MAP_H - 16));
-    c.fillStyle = star() > 0.78 ? "#8fe8ff" : "#8997c8";
-    c.globalAlpha = 0.35 + star() * 0.65; c.fillRect(x, y, star() > 0.86 ? 3 : 2, 2);
+var PLAZA_SHOPS = [
+  { id: "hns", n: "홈앤쇼핑", url: "https://m.hnsmall.com", x: 60, y: 50, top: true, color: "#e8503a" },
+  { id: "w", n: "W쇼핑", url: "https://www.w-shopping.co.kr/index", x: 450, y: 50, top: true, color: "#8a4fd0" },
+  { id: "skstoa", n: "SK스토아", url: "https://m.skstoa.com/index", x: 840, y: 50, top: true, color: "#f0852a" },
+  { id: "kt", n: "KT알파쇼핑", url: "https://m.kshop.co.kr", x: 60, y: 740, top: false, color: "#d8393f" },
+  { id: "nt", n: "쇼핑엔T", url: "https://www.shoppingntmall.com/", x: 450, y: 740, top: false, color: "#2f86d6" },
+  { id: "cware", n: "커머스웨어", url: "https://login.mailplug.com/auth/login?host_domain=cware.co.kr", x: 840, y: 740, top: false, color: "#2aa876" }
+];
+PLAZA_SHOPS.forEach(function (s) {
+  s.w = 300; s.h = 180;
+  s.door = { x: s.x + s.w / 2 - 36, y: s.top ? s.y + s.h : s.y - 44, w: 72, h: 44 };
+});
+var PLAZA_WALK = { x0: 40, x1: 1130, y0: 290, y1: 650 };
+var PLAZA_FOUNT = { x: 600, y: 485, rx: 150, ry: 78 };
+var PLAZA_PROPS = (function () {
+  var list = [], pr = rng(20261007);
+  function add(t, x, y, extra) { var p = { t: t, x: x, y: y }; Object.keys(extra || {}).forEach(function (k) { p[k] = extra[k]; }); list.push(p); }
+  [[60, 330, 40], [60, 640, 38], [1140, 330, 40], [1140, 640, 38], [330, 405, 42], [870, 405, 42], [330, 600, 42], [870, 600, 42], [405, 262, 34], [795, 262, 34], [405, 722, 34], [795, 722, 34]].forEach(function (a, i) {
+    add("tree", a[0], a[1], { r: a[2], bloom: i % 3 === 0, seed: Math.floor(pr() * 1000) });
+  });
+  [[430, 345], [770, 345], [430, 630], [770, 630]].forEach(function (a) { add("bench", a[0], a[1], {}); });
+  [[470, 300], [730, 300], [470, 670], [730, 670], [270, 485], [930, 485]].forEach(function (a) { add("lamp", a[0], a[1], {}); });
+  PLAZA_SHOPS.forEach(function (s) {
+    var cy = s.top ? s.door.y + 34 : s.door.y + 12, cx = s.x + s.w / 2;
+    add("planter", cx - 74, cy, { color: s.color }); add("planter", cx + 74, cy, { color: s.color });
+  });
+  add("statue", 150, 485, {});
+  add("umbrella", 1050, 485, { color: "#e8503a" });
+  add("umbrella", 1050, 560, { color: "#2f86d6" });
+  list.sort(function (a, b) { return a.y - b.y; });
+  return list;
+})();
+function plazaSolid(p) {
+  switch (p.t) {
+    case "tree": return { rx: 13, ry: 8 };
+    case "bench": return { rx: 38, ry: 9 };
+    case "lamp": return { rx: 6, ry: 4 };
+    case "planter": return { rx: 28, ry: 10 };
+    case "statue": return { rx: 40, ry: 12 };
+    case "umbrella": return { rx: 30, ry: 12 };
   }
-  c.globalAlpha = 1;
-  c.fillStyle = "#0b1428"; c.fillRect(16, 10, 928, 690);
-  c.strokeStyle = "#172949"; c.lineWidth = 1; c.globalAlpha = 0.8;
-  for (x = 40; x < 944; x += 48) { c.beginPath(); c.moveTo(x, 10); c.lineTo(x, 700); c.stroke(); }
-  for (y = 34; y < 700; y += 48) { c.beginPath(); c.moveTo(16, y); c.lineTo(944, y); c.stroke(); }
-  c.globalAlpha = 1;
+  return null;
+}
+function plazaBlocked(x, y) {
+  var fx = x + CW / 2, fy = y + CH, i, s, p, q, F = PLAZA_FOUNT;
+  for (i = 0; i < PLAZA_SHOPS.length; i++) { s = PLAZA_SHOPS[i]; if (fx > s.x && fx < s.x + s.w && fy > s.y + 20 && fy < s.y + s.h) return true; }
+  if (Math.pow((fx - F.x) / (F.rx - 4), 2) + Math.pow((fy - F.y) / (F.ry - 2), 2) < 1) return true;
+  for (i = 0; i < PLAZA_PROPS.length; i++) {
+    p = PLAZA_PROPS[i]; q = plazaSolid(p);
+    if (q && Math.pow((fx - p.x) / q.rx, 2) + Math.pow((fy - p.y) / q.ry, 2) < 1) return true;
+  }
+  return false;
+}
+function plazaSpot() {
+  var k, p;
+  for (k = 0; k < 12; k++) { p = randIn(PLAZA_WALK); if (!plazaBlocked(p[0], p[1])) return p; }
+  return p;
+}
+function plazaShopAt(x, y) {
+  var fx = x + CW / 2, fy = y + CH, i, s, d;
+  for (i = 0; i < PLAZA_SHOPS.length; i++) { s = PLAZA_SHOPS[i]; d = s.door; if (fx >= d.x - 10 && fx <= d.x + d.w + 10 && fy >= d.y - 6 && fy <= d.y + d.h + 6) return s; }
+  return null;
+}
+function plazaRR(c, x, y, w, h, r) {
+  c.beginPath(); c.moveTo(x + r, y); c.lineTo(x + w - r, y); c.quadraticCurveTo(x + w, y, x + w, y + r); c.lineTo(x + w, y + h - r);
+  c.quadraticCurveTo(x + w, y + h, x + w - r, y + h); c.lineTo(x + r, y + h); c.quadraticCurveTo(x, y + h, x, y + h - r); c.lineTo(x, y + r); c.quadraticCurveTo(x, y, x + r, y); c.closePath();
+}
+function plazaShade(c, x, y, rx, ry, a) { c.globalAlpha = a; c.fillStyle = "#0b1a10"; c.beginPath(); c.ellipse(x, y, rx, ry, 0, 0, Math.PI * 2); c.fill(); c.globalAlpha = 1; }
+function paintPlazaMap(c) {
+  var dark = T === TH.dark, font = "'Apple SD Gothic Neo','Malgun Gothic','Noto Sans KR',sans-serif", pr = rng(20261008), x, y, k;
+  var pal = dark
+    ? { grass: "#24523a", grass2: "#2a5c41", t1: "#323a4b", t2: "#2c3443", ring: "#3d4659", edge: "#171c28", body: "#e9e6de", glass: ["#4d7a96", "#2f526b"], stone: "#8b94a6" }
+    : { grass: "#8ccb9b", grass2: "#82c392", t1: "#f1ecdf", t2: "#e8e2d3", ring: "#fbf8ef", edge: "#b9b29f", body: "#fffdf8", glass: ["#bfe6f5", "#8fc7de"], stone: "#cfc8b8" };
+  c.fillStyle = pal.grass; c.fillRect(0, 0, MAP_W, MAP_H);
+  for (y = 0; y < MAP_H; y += 36) { c.fillStyle = pal.grass2; c.fillRect(0, y, MAP_W, 18); }
+  c.fillStyle = dark ? "#3a7a55" : "#a5dbb2";
+  for (k = 0; k < 260; k++) c.fillRect(Math.floor(pr() * MAP_W), Math.floor(pr() * MAP_H), 2, 4);
 
-  c.setLineDash([8, 7]); c.strokeStyle = "#39658b"; c.lineWidth = 2;
-  c.beginPath(); c.ellipse(454, 350, 332, 230, -0.2, 0, Math.PI * 2); c.stroke();
-  c.beginPath(); c.ellipse(454, 350, 210, 146, 0.35, 0, Math.PI * 2); c.stroke(); c.setLineDash([]);
-
-  c.fillStyle = "#122237"; c.fillRect(300, 246, 302, 31);
-  c.fillStyle = "#28465d"; c.fillRect(300, 274, 302, 2);
-  c.fillStyle = "#a8efff"; c.font = "700 13px 'Apple SD Gothic Neo','Malgun Gothic','Noto Sans KR',sans-serif"; c.textAlign = "center";
-  c.fillText("성계 주둔지", 451, 266);
-
-  var stationX = 451, stationY = 365;
-  c.save();
-  c.fillStyle = "#101c2e"; c.beginPath();
-  c.moveTo(278, 346); c.lineTo(313, 320); c.lineTo(371, 316); c.lineTo(410, 329); c.lineTo(451, 306);
-  c.lineTo(493, 329); c.lineTo(535, 316); c.lineTo(591, 322); c.lineTo(624, 347);
-  c.lineTo(610, 385); c.lineTo(560, 399); c.lineTo(512, 398); c.lineTo(451, 430);
-  c.lineTo(392, 398); c.lineTo(342, 400); c.lineTo(294, 384); c.closePath(); c.fill();
-  c.strokeStyle = "#527c91"; c.lineWidth = 2; c.stroke();
-
-  c.globalAlpha = 0.6; c.strokeStyle = "#52bfd1"; c.lineWidth = 2;
-  c.beginPath(); c.ellipse(stationX, stationY, 151, 52, 0, 0, Math.PI * 2); c.stroke();
-  c.globalAlpha = 0.32; c.lineWidth = 1;
-  c.beginPath(); c.ellipse(stationX, stationY, 133, 43, 0, 0, Math.PI * 2); c.stroke();
-  c.globalAlpha = 1;
-
-  c.lineCap = "round"; c.lineWidth = 17; c.strokeStyle = "#263f57";
-  [[stationX - 34, stationY - 8, 320, 357], [stationX + 34, stationY - 8, 582, 357], [stationX, stationY + 28, stationX, 414]].forEach(function (arm) {
-    c.beginPath(); c.moveTo(arm[0], arm[1]); c.lineTo(arm[2], arm[3]); c.stroke();
+  /* 광장 포장 */
+  c.save(); plazaRR(c, 24, 236, 1152, 500, 30); c.clip();
+  for (y = 236; y < 736; y += 40) for (x = 24; x < 1176; x += 40) { c.fillStyle = ((x - 24) / 40 + (y - 236) / 40) % 2 ? pal.t1 : pal.t2; c.fillRect(x, y, 40, 40); }
+  c.globalAlpha = dark ? 0.25 : 0.55; c.fillStyle = pal.ring;
+  c.beginPath(); c.ellipse(PLAZA_FOUNT.x, PLAZA_FOUNT.y, 250, 138, 0, 0, Math.PI * 2); c.fill();
+  c.globalAlpha = 1; c.strokeStyle = dark ? "#4a5468" : "#d9d1bd"; c.lineWidth = 3; c.setLineDash([10, 8]);
+  c.beginPath(); c.ellipse(PLAZA_FOUNT.x, PLAZA_FOUNT.y, 250, 138, 0, 0, Math.PI * 2); c.stroke(); c.setLineDash([]);
+  PLAZA_SHOPS.forEach(function (s) {
+    var d = s.door, g = c.createLinearGradient(0, s.top ? d.y : d.y + d.h, 0, s.top ? d.y + 120 : d.y - 76);
+    g.addColorStop(0, s.color + "55"); g.addColorStop(1, s.color + "00");
+    c.fillStyle = g; c.fillRect(d.x - 20, s.top ? d.y : d.y - 76, d.w + 40, 120);
   });
-  c.lineWidth = 3; c.strokeStyle = "#62d3df";
-  [[stationX - 34, stationY - 8, 320, 357], [stationX + 34, stationY - 8, 582, 357], [stationX, stationY + 28, stationX, 414]].forEach(function (arm) {
-    c.beginPath(); c.moveTo(arm[0], arm[1]); c.lineTo(arm[2], arm[3]); c.stroke();
-  });
-
-  [[292, 337], [592, 337], [438, 414]].forEach(function (dock) {
-    c.fillStyle = "#172b42"; c.fillRect(dock[0], dock[1], 40, 34);
-    c.strokeStyle = "#7fd9e4"; c.lineWidth = 2; c.strokeRect(dock[0] + 1, dock[1] + 1, 38, 32);
-    c.fillStyle = "#3f9aae"; c.fillRect(dock[0] + 7, dock[1] + 6, 26, 3);
-    c.fillStyle = "#284c65"; c.fillRect(dock[0] + 7, dock[1] + 14, 26, 13);
-  });
-
-  c.fillStyle = "#0b1524"; c.beginPath(); c.arc(stationX, stationY, 39, 0, Math.PI * 2); c.fill();
-  c.strokeStyle = "#94e8ed"; c.lineWidth = 3; c.stroke();
-  c.fillStyle = "#1b5368"; c.beginPath(); c.arc(stationX, stationY, 28, 0, Math.PI * 2); c.fill();
-  c.strokeStyle = "#65d5e2"; c.lineWidth = 2; c.stroke();
-  c.fillStyle = "#b9f4f3"; c.beginPath(); c.arc(stationX, stationY, 12, 0, Math.PI * 2); c.fill();
-  c.fillStyle = "#e5ffff"; c.fillRect(stationX - 2, stationY - 20, 4, 40); c.fillRect(stationX - 20, stationY - 2, 40, 4);
   c.restore();
-  c.textAlign = "left";
+  c.strokeStyle = pal.edge; c.lineWidth = 3; plazaRR(c, 24, 236, 1152, 500, 30); c.stroke();
 
-  c.fillStyle = "#0a1226"; c.fillRect(m.x, m.y, m.w, m.h);
-  c.strokeStyle = "#54c7e8"; c.lineWidth = 2; c.strokeRect(m.x + 2, m.y + 2, m.w - 4, m.h - 4);
-  c.fillStyle = "#152744"; c.fillRect(m.x + 14, m.y + 14, m.w - 28, 38);
-  c.fillStyle = "#23496a"; c.fillRect(m.x + 14, m.y + 50, m.w - 28, 2);
-  c.fillStyle = "#a8efff"; c.font = "700 12px 'Apple SD Gothic Neo','Malgun Gothic','Noto Sans KR',sans-serif"; c.textAlign = "center";
-  c.fillText("우주 관제소", m.x + m.w / 2, m.y + 39);
-  c.fillStyle = "#101d36"; c.fillRect(m.x + 18, m.y + 68, m.w - 36, m.h - 88);
-  c.strokeStyle = "#284a70"; c.lineWidth = 1; c.strokeRect(m.x + 19, m.y + 69, m.w - 38, m.h - 90);
-  c.fillStyle = "#263e64"; c.fillRect(m.x + 32, m.y + 82, m.w - 64, 8);
-  c.fillStyle = "#4ac6e5"; c.fillRect(m.x + 32, m.y + 108, 4, 440); c.fillRect(m.x + m.w - 36, m.y + 108, 4, 440);
-  c.fillStyle = "#75d8ed"; c.beginPath(); c.moveTo(m.x + 64, m.y + 220); c.lineTo(m.x + 120, m.y + 190); c.lineTo(m.x + 176, m.y + 220); c.lineTo(m.x + 120, m.y + 250); c.closePath(); c.fill();
-  c.fillStyle = "#dffaff"; c.fillRect(m.x + 111, m.y + 209, 18, 22);
-  c.textAlign = "left";
-
-  c.fillStyle = "#091225"; c.fillRect(16, 716, 928, 242);
-  c.strokeStyle = "#284567"; c.strokeRect(16, 716, 928, 242);
-  c.fillStyle = "#d8f8ff"; c.font = "700 13px 'Apple SD Gothic Neo','Malgun Gothic','Noto Sans KR',sans-serif"; c.fillText("우주항", 32, 740);
-  Object.keys(REGIONS).forEach(function (u) {
-    var g = REGIONS[u], color = ucol(u), empty = UNI[u].hidden;
-    c.fillStyle = empty ? "#111b31" : "#142640"; c.fillRect(g.x, g.y, g.w, g.h);
-    c.strokeStyle = empty ? "#64748b" : color; c.lineWidth = 2; c.strokeRect(g.x + 1, g.y + 1, g.w - 2, g.h - 2);
-    c.fillStyle = color; c.fillRect(g.x + 8, g.y + 10, g.w - 16, 4);
-    c.fillStyle = empty ? "#8391aa" : "#233d5e"; c.fillRect(g.x + 24, g.y + 46, g.w - 48, g.h - 76);
-    c.fillStyle = color; c.fillRect(g.x + g.w / 2 - 20, g.y + 84, 40, 24); c.fillRect(g.x + g.w / 2 - 30, g.y + 94, 60, 8);
-    c.fillStyle = "#d8f8ff"; c.font = "700 11px 'Apple SD Gothic Neo','Malgun Gothic','Noto Sans KR',sans-serif"; c.textAlign = "center";
-    c.fillText(empty ? "미개척 행성" : fit(c, UNI[u].realm, g.w - 12), g.x + g.w / 2, g.y + 34);
+  /* 건물 */
+  PLAZA_SHOPS.forEach(function (s) {
+    var d = s.door, cx = s.x + s.w / 2, sy = s.top ? s.y : s.y + s.h - 50, wy = s.top ? s.y + 66 : s.y + 40, dy = s.top ? s.y + s.h - 70 : s.y, g, i;
+    plazaShade(c, cx + 10, s.y + s.h + (s.top ? 8 : -6), s.w / 2 + 10, 12, 0.22);
+    c.fillStyle = pal.body; plazaRR(c, s.x, s.y, s.w, s.h, 18); c.fill();
+    c.lineWidth = 3; c.strokeStyle = pal.edge; c.stroke();
+    c.fillStyle = s.color; c.save(); plazaRR(c, s.x, s.y, s.w, s.h, 18); c.clip(); c.fillRect(s.x, sy, s.w, 50); c.restore();
+    c.fillStyle = "#ffffff30"; c.fillRect(s.x, sy, s.w, 6);
+    c.fillStyle = "#fff"; c.font = "800 24px " + font; c.textAlign = "center"; c.fillText(s.n, cx, sy + 34);
+    for (i = 0; i < 3; i++) {
+      var gx = s.x + 22 + i * 90 - (i === 1 ? 0 : 0), gw = 76, gh = 54;
+      if (Math.abs(gx + gw / 2 - cx) < 50) continue;
+      g = c.createLinearGradient(0, wy, 0, wy + gh); g.addColorStop(0, pal.glass[0]); g.addColorStop(1, pal.glass[1]);
+      c.fillStyle = g; plazaRR(c, gx, wy, gw, gh, 8); c.fill();
+      c.strokeStyle = pal.edge; c.lineWidth = 2; c.stroke();
+      c.fillStyle = "#ffffff55"; c.beginPath(); c.moveTo(gx + 10, wy + gh - 4); c.lineTo(gx + 26, wy + 4); c.lineTo(gx + 36, wy + 4); c.lineTo(gx + 20, wy + gh - 4); c.closePath(); c.fill();
+    }
+    /* 어닝 + 문 */
+    var ay = s.top ? dy - 14 : dy + 70;
+    c.fillStyle = "#1f2530"; plazaRR(c, cx - 28, dy, 56, 70, 10); c.fill();
+    g = c.createLinearGradient(0, dy, 0, dy + 70); g.addColorStop(0, "#9bd4ea"); g.addColorStop(1, "#5a97b3");
+    c.fillStyle = g; plazaRR(c, cx - 24, dy + 4, 48, 62, 8); c.fill();
+    c.fillStyle = "#ffffff55"; c.fillRect(cx - 2, dy + 4, 4, 62);
+    c.fillStyle = "#f2c14e"; c.fillRect(cx - 8, dy + 38, 3, 10); c.fillRect(cx + 5, dy + 38, 3, 10);
+    for (i = 0; i < 8; i++) { c.fillStyle = i % 2 ? "#ffffff" : s.color; c.fillRect(cx - 40 + i * 10, ay, 10, 14); }
+    c.fillStyle = s.color; c.beginPath(); c.arc(cx - 40 + 5, ay + 14, 5, 0, Math.PI); c.fill();
+    c.globalAlpha = 0.45; c.fillStyle = s.color; plazaRR(c, d.x + 6, s.top ? d.y + 14 : d.y + 4, d.w - 12, 26, 8); c.fill(); c.globalAlpha = 1;
   });
-  c.textAlign = "left"; c.globalAlpha = 1;
+  c.textAlign = "left";
+
+  /* 조형물 */
+  PLAZA_PROPS.forEach(function (p) {
+    var i, a;
+    if (p.t === "tree") {
+      var r = p.r, tr = rng(p.seed);
+      plazaShade(c, p.x + 10, p.y + 2, r * 0.9, r * 0.32, dark ? 0.35 : 0.22);
+      c.fillStyle = dark ? "#4a3a2c" : "#7a5a3c"; c.fillRect(p.x - 5, p.y - 24, 10, 26);
+      c.fillStyle = dark ? "#1f5a3a" : "#3f9a5f"; c.beginPath(); c.arc(p.x, p.y - r * 1.1, r, 0, Math.PI * 2); c.fill();
+      c.fillStyle = dark ? "#287048" : "#52b36f"; c.beginPath(); c.arc(p.x - r * 0.4, p.y - r * 0.85, r * 0.72, 0, Math.PI * 2); c.arc(p.x + r * 0.45, p.y - r * 0.9, r * 0.66, 0, Math.PI * 2); c.fill();
+      c.fillStyle = dark ? "#34885a" : "#78cc8b"; c.beginPath(); c.arc(p.x - r * 0.3, p.y - r * 1.3, r * 0.42, 0, Math.PI * 2); c.fill();
+      if (p.bloom) for (i = 0; i < 16; i++) { a = tr() * Math.PI * 2; c.fillStyle = i % 2 ? "#ff9fc0" : "#ffd36a"; c.fillRect(Math.round(p.x + Math.cos(a) * r * 0.8 * tr()), Math.round(p.y - r * 1.1 + Math.sin(a) * r * 0.8 * tr()), 4, 4); }
+    } else if (p.t === "bench") {
+      plazaShade(c, p.x + 4, p.y + 12, 40, 6, 0.2);
+      c.fillStyle = "#3b3f4a"; c.fillRect(p.x - 32, p.y - 2, 5, 14); c.fillRect(p.x + 27, p.y - 2, 5, 14);
+      c.fillStyle = "#b9824f"; for (i = 0; i < 3; i++) c.fillRect(p.x - 37, p.y - 16 + i * 6, 74, 5);
+      c.fillStyle = "#8f6038"; c.fillRect(p.x - 37, p.y - 16, 74, 2);
+    } else if (p.t === "lamp") {
+      plazaShade(c, p.x + 6, p.y + 2, 12, 4, 0.25);
+      c.fillStyle = dark ? "#9aa3b8" : "#3d4452"; c.fillRect(p.x - 2, p.y - 58, 4, 58); c.fillRect(p.x - 6, p.y - 4, 12, 5);
+      c.fillStyle = "#fff3b8"; c.beginPath(); c.arc(p.x, p.y - 62, 7, 0, Math.PI * 2); c.fill();
+      c.strokeStyle = dark ? "#9aa3b8" : "#3d4452"; c.lineWidth = 2; c.stroke();
+    } else if (p.t === "planter") {
+      plazaShade(c, p.x + 4, p.y + 10, 30, 6, 0.2);
+      c.fillStyle = dark ? "#5a4636" : "#c98a5a"; plazaRR(c, p.x - 26, p.y - 4, 52, 16, 5); c.fill();
+      c.fillStyle = dark ? "#2a7a4a" : "#4caf6e"; c.beginPath(); c.ellipse(p.x, p.y - 4, 26, 10, 0, 0, Math.PI * 2); c.fill();
+      for (i = 0; i < 9; i++) { c.fillStyle = i % 3 === 0 ? "#ff9fc0" : i % 3 === 1 ? p.color : "#ffe08a"; c.fillRect(p.x - 22 + i * 5, p.y - 12 + (i * 7 % 6), 4, 4); }
+    } else if (p.t === "statue") {
+      plazaShade(c, p.x + 8, p.y + 14, 46, 10, 0.25);
+      c.fillStyle = dark ? "#6a7388" : "#d5cebd"; plazaRR(c, p.x - 40, p.y - 6, 80, 22, 6); c.fill();
+      c.fillStyle = dark ? "#59627a" : "#bdb5a2"; c.fillRect(p.x - 40, p.y + 10, 80, 6);
+      c.lineWidth = 9; c.strokeStyle = "#2ec4b6"; c.beginPath(); c.ellipse(p.x, p.y - 58, 26, 46, 0, 0, Math.PI * 2); c.stroke();
+      c.lineWidth = 5; c.strokeStyle = "#ffbe3d"; c.beginPath(); c.ellipse(p.x, p.y - 58, 14, 30, 0.6, 0, Math.PI * 2); c.stroke();
+      c.fillStyle = "#ff5d8f"; c.beginPath(); c.arc(p.x, p.y - 58, 7, 0, Math.PI * 2); c.fill();
+    } else if (p.t === "umbrella") {
+      plazaShade(c, p.x + 8, p.y + 12, 46, 10, 0.2);
+      c.fillStyle = dark ? "#4b5366" : "#f4f1e8"; c.beginPath(); c.ellipse(p.x, p.y, 28, 11, 0, 0, Math.PI * 2); c.fill();
+      c.fillStyle = "#555e70"; c.fillRect(p.x - 2, p.y - 60, 4, 62);
+      for (i = 0; i < 6; i++) {
+        c.fillStyle = i % 2 ? "#ffffff" : p.color;
+        c.beginPath(); c.moveTo(p.x, p.y - 66); c.lineTo(p.x - 48 + i * 16, p.y - 40); c.lineTo(p.x - 32 + i * 16, p.y - 40); c.closePath(); c.fill();
+      }
+      c.fillStyle = dark ? "#6a7388" : "#d9d3c5"; c.fillRect(p.x - 40, p.y + 4, 10, 8); c.fillRect(p.x + 30, p.y + 4, 10, 8);
+    }
+  });
+  plazaShade(c, PLAZA_FOUNT.x + 14, PLAZA_FOUNT.y + 10, PLAZA_FOUNT.rx + 6, PLAZA_FOUNT.ry + 6, 0.2);
+  c.globalAlpha = 1; c.textAlign = "left";
+}
+function drawPlazaLive() {
+  var t = lastT / 1000, F = PLAZA_FOUNT, x = F.x, y = F.y, dark = T === TH.dark, i, k, p, a, g, len, tx, ty, cx, cy;
+  mctx.save();
+  mctx.globalAlpha = 1; mctx.fillStyle = dark ? "#7d8799" : "#e4ddcc"; mctx.beginPath(); mctx.ellipse(x, y, F.rx, F.ry, 0, 0, Math.PI * 2); mctx.fill();
+  mctx.fillStyle = dark ? "#656f82" : "#c9c1ae"; mctx.beginPath(); mctx.ellipse(x, y + 4, F.rx - 8, F.ry - 6, 0, 0, Math.PI * 2); mctx.fill();
+  g = mctx.createRadialGradient(x - 40, y - 20, 10, x, y, F.rx);
+  g.addColorStop(0, dark ? "#4f8fb0" : "#a3e2f3"); g.addColorStop(1, dark ? "#2b6283" : "#4eb0d6");
+  mctx.fillStyle = g; mctx.beginPath(); mctx.ellipse(x, y + 4, F.rx - 16, F.ry - 14, 0, 0, Math.PI * 2); mctx.fill();
+  for (k = 0; k < 3; k++) {
+    p = (t * 0.45 + k / 3) % 1;
+    mctx.globalAlpha = (1 - p) * 0.7; mctx.strokeStyle = "#ffffff"; mctx.lineWidth = 2;
+    mctx.beginPath(); mctx.ellipse(x, y + 8, 30 + (F.rx - 56) * p, 14 + (F.ry - 32) * p, 0, 0, Math.PI * 2); mctx.stroke();
+  }
+  mctx.globalAlpha = 1;
+  mctx.fillStyle = dark ? "#8d97aa" : "#ddd6c4"; mctx.beginPath(); mctx.ellipse(x, y - 14, 64, 32, 0, 0, Math.PI * 2); mctx.fill();
+  mctx.fillStyle = dark ? "#5d6a80" : "#b7af9b"; mctx.beginPath(); mctx.ellipse(x, y - 10, 56, 26, 0, 0, Math.PI * 2); mctx.fill();
+  mctx.fillStyle = dark ? "#5aa0c2" : "#8fdcf0"; mctx.beginPath(); mctx.ellipse(x, y - 10, 50, 22, 0, 0, Math.PI * 2); mctx.fill();
+  mctx.fillStyle = dark ? "#aab3c4" : "#e9e3d3"; mctx.fillRect(x - 8, y - 58, 16, 46);
+  mctx.beginPath(); mctx.ellipse(x, y - 56, 28, 12, 0, 0, Math.PI * 2); mctx.fill();
+  mctx.fillStyle = dark ? "#5aa0c2" : "#8fdcf0"; mctx.beginPath(); mctx.ellipse(x, y - 58, 22, 8, 0, 0, Math.PI * 2); mctx.fill();
+  mctx.lineCap = "round";
+  for (i = 0; i < 8; i++) {
+    a = i * Math.PI / 4; len = 70;
+    tx = x + Math.cos(a) * len; ty = y - 10 + Math.sin(a) * len * 0.5;
+    mctx.globalAlpha = 0.85; mctx.strokeStyle = "#eaf9ff"; mctx.lineWidth = 2;
+    mctx.beginPath(); mctx.moveTo(x, y - 62); mctx.quadraticCurveTo((x + tx) / 2, y - 96, tx, ty); mctx.stroke();
+    p = (t * 0.8 + i * 0.125) % 1; cx = x + (tx - x) * p; cy = (y - 62) + (ty - (y - 62)) * p - Math.sin(p * Math.PI) * 34;
+    mctx.globalAlpha = 1; mctx.fillStyle = "#ffffff"; mctx.fillRect(Math.round(cx) - 2, Math.round(cy) - 2, 4, 4);
+  }
+  mctx.globalAlpha = 0.9; mctx.strokeStyle = "#ffffff"; mctx.lineWidth = 3;
+  mctx.beginPath(); mctx.moveTo(x, y - 62); mctx.lineTo(x, y - 62 - 34 - Math.sin(t * 5) * 6); mctx.stroke();
+  /* 가로등 빛 */
+  PLAZA_PROPS.forEach(function (q) {
+    if (q.t !== "lamp") return;
+    var fl = 0.9 + 0.1 * Math.sin(t * 2 + q.x), r = dark ? 130 : 70, gl = mctx.createRadialGradient(q.x, q.y - 62, 4, q.x, q.y - 62, r);
+    gl.addColorStop(0, "rgba(255,236,160," + (dark ? 0.55 : 0.22) * fl + ")"); gl.addColorStop(1, "rgba(255,236,160,0)");
+    mctx.globalAlpha = 1; mctx.fillStyle = gl; mctx.fillRect(q.x - r, q.y - 62 - r, r * 2, r * 2);
+  });
+  mctx.restore();
 }
 function paintOfficeMap(c) {
   var x, y, k, m = MEET, rooms = [];
@@ -1105,7 +1236,7 @@ function paintMap() {
   c.imageSmoothingEnabled = false; c.globalAlpha = 1;
   FIRES = []; TORCHES = [];
   if (WORLD_THEME === "office") { paintOfficeMap(c); return; }
-  if (WORLD_THEME === "space") { paintSpaceMap(c); return; }
+  if (WORLD_THEME === "plaza") { paintPlazaMap(c); return; }
   c.fillStyle = T.bg; c.fillRect(0, 0, MAP_W, MAP_H);
   /* 전장 바닥: 풀밭 */
   for (ty = fy; ty < fy + fh; ty += 22) for (tx = fx; tx < fx + fw; tx += 22) { c.fillStyle = ((tx - fx) / 22 + (ty - fy) / 22) % 2 ? F.g1 : F.g2; c.fillRect(tx, ty, 22, Math.min(22, fy + fh - ty)); }
@@ -1210,20 +1341,8 @@ function drumstick(x, y) {
   mctx.fillStyle = "#c9782c"; mctx.fillRect(x + 3, y + 1, 6, 4); mctx.fillStyle = "#eaa54e"; mctx.fillRect(x + 4, y + 1, 3, 1);
   mctx.fillStyle = "#f5efe0"; mctx.fillRect(x - 4, y + 4, 6, 2); mctx.fillRect(x - 5, y + 3, 2, 2); mctx.fillRect(x - 5, y + 6, 2, 2);
 }
-function spaceMeal(x, y) {
-  x = Math.round(x); y = Math.round(y);
-  var pulse = 0.7 + 0.3 * Math.sin(lastT / 160);
-  mctx.save(); mctx.globalAlpha = 0.9;
-  mctx.strokeStyle = "#78e7ef"; mctx.lineWidth = 1;
-  mctx.beginPath(); mctx.ellipse(x + 4, y + 7, 12 + pulse * 2, 4, 0, 0, Math.PI * 2); mctx.stroke();
-  mctx.fillStyle = "#102c46"; mctx.fillRect(x - 3, y + 1, 14, 11);
-  mctx.fillStyle = "#a9f6ee"; mctx.fillRect(x - 1, y + 3, 10, 2);
-  mctx.fillStyle = "#47c9df"; mctx.fillRect(x, y + 7, 8, 2);
-  mctx.fillStyle = "#dffeff"; mctx.fillRect(x + 3, y - 2, 4, 3);
-  mctx.restore();
-}
 function drawFires() {
-  if (LUNCH.n > 0 && WORLD_THEME !== "office") {
+  if (LUNCH.n > 0 && WORLD_THEME === "battlefield") {
     var fl0 = 0.85 + 0.15 * Math.sin(lastT / 120), lx = LUNCH.cx, ly = LUNCH.cy;
     mctx.globalAlpha = 1; fireGlow(lx, ly - 6, 120, (T.night ? 0.5 : 0.28) * fl0);
     mctx.fillStyle = "#3a2414"; mctx.fillRect(lx - 16, ly - 3, 32, 6); mctx.fillStyle = "#5e3e26"; mctx.fillRect(lx - 12, ly - 7, 24, 5);
@@ -1315,7 +1434,7 @@ function foodIcon(t) {
   return FOOD_CV[k];
 }
 function snackHit(ev) {
-  var pt = mapPoint(ev), sn = snackNow(), hit = null;
+  var pt = mapPoint(ev), sn = WORLD_THEME === "plaza" ? {} : snackNow(), hit = null;
   Object.keys(sn).forEach(function (u) {
     var g = REGIONS[u]; if (!g) return;
     var n = sn[u].items.length;
@@ -1330,7 +1449,7 @@ var OFFICE = { x0: 90, x1: 860, y0: 90, y1: 590 };
 var bossWalker = null;
 function bossWalkArea() {
   if (WORLD_THEME === "office") return { x0: 80, x1: 820, y0: 78, y1: 560 };
-  if (WORLD_THEME === "space") return { x0: 80, x1: 840, y0: 90, y1: 570 };
+  if (WORLD_THEME === "plaza") return { x0: 60, x1: 1040, y0: 260, y1: 600 };
   return { x0: 70, x1: 850, y0: 82, y1: 570 };
 }
 function ensureBossWalker() {
@@ -1362,7 +1481,7 @@ function updateBossWalker(dt) {
   b.dir = dx < 0 ? -1 : 1;
   b.x += dx / dist * step; b.y += dy / dist * step; b.moving = true; b.anim += dt;
 }
-function wanderOf(u) { return WORLD_THEME === "office" ? OFFICE : REGIONS[u] ? areaOf(u) : OFFICE; }
+function wanderOf(u) { return WORLD_THEME === "office" ? OFFICE : WORLD_THEME === "plaza" ? PLAZA_WALK : REGIONS[u] ? areaOf(u) : OFFICE; }
 function randIn(a) { return [a.x0 + Math.random() * (a.x1 - a.x0), a.y0 + Math.random() * (a.y1 - a.y0)]; }
 function deskFor(d) { return SEATNOW[jobId(d)] || null; }
 function applySeats(initial) {
@@ -1379,11 +1498,11 @@ function applySeats(initial) {
 }
 var STAND = {};
 function newWalker(d, i) {
-  var u = uOf(d), hd = deskFor(d), a = wanderOf(u), p = hd && shouldSitAtDesk(d) ? [hd.x, hd.y] : a ? randIn(a) : (STAND[d.n] || [OX, OY]);
+  var u = uOf(d), hd = deskFor(d), a = wanderOf(u), p = hd && shouldSitAtDesk(d) ? [hd.x, hd.y] : a ? (WORLD_THEME === "plaza" ? plazaSpot() : randIn(a)) : (STAND[d.n] || [OX, OY]);
   return { i: i, id: jobId(d), u: u, a: a, hd: hd, x: p[0], y: p[1], tx: p[0], ty: p[1], wait: Math.random() * 2, speed: 16 + Math.random() * 12, anim: 0, moving: false, route: [], seat: null, mode: "desk", tag: "", pkey: "" };
 }
 var walkers = DATA.map(function (d, i) { return newWalker(d, i); });
-function homeDest(w) { return w.hd && shouldSitAtDesk(DATA[w.i]) ? [w.hd.x, w.hd.y] : w.a ? randIn(w.a) : (STAND[DATA[w.i].n] || [w.x, w.y]); }
+function homeDest(w) { return w.hd && shouldSitAtDesk(DATA[w.i]) ? [w.hd.x, w.hd.y] : w.a ? (WORLD_THEME === "plaza" ? plazaSpot() : randIn(w.a)) : (STAND[DATA[w.i].n] || [w.x, w.y]); }
 function leaveSpot(w) { return w.hd ? [w.hd.cx - CW / 2, w.hd.ry + 66] : (STAND[DATA[w.i].n] || [w.x, w.y]); }
 function isSitting(w) { return !w.route.length && !w.seat && w.mode === "desk" && w.hd && shouldSitAtDesk(DATA[w.i]) && Math.abs(w.x - w.hd.x) < 1.5 && Math.abs(w.y - w.hd.y) < 1.5; }
 function isUsingPc(w) { return w.mode === "pc" && !!w.pc && !w.route.length; }
@@ -1392,6 +1511,7 @@ function wtop(r) { return OY + r * ROWH + 66; }
 function zoneOf(x, y) { return x >= EDGE - 10 ? "meet" : (y >= LOWER_Y ? "low" : "off"); }
 function goTo(w, dest) {
   var pts = [], zf = zoneOf(w.x, w.y), zt = zoneOf(dest[0], dest[1]), wc, wh;
+  if (WORLD_THEME === "plaza") { w.route = [dest]; w.wait = 0; w.moving = true; return; }
   if (zf === "off") {
     wc = wtop(rowOfY(w.y)); pts.push([w.x, wc]);
     if (zt === "off") { pts.push([AX, wc]); wh = wtop(rowOfY(dest[1])); if (wh !== wc) pts.push([AX, wh]); pts.push([dest[0], wh]); }
@@ -1412,7 +1532,7 @@ function lunchSpot(k, n) {
   var rx = Math.min(150, 46 + n * 9), ry = rx * 0.55, a = 2 * Math.PI * k / n - Math.PI / 2;
   return [LUNCH.cx + Math.cos(a) * rx - CW / 2, LUNCH.cy + Math.sin(a) * ry - CH + 14];
 }
-function awayDest() { return [OX + Math.random() * (8 * CELLW - CW), wtop(Math.floor(Math.random() * GRID))]; }
+function awayDest() { if (WORLD_THEME === "plaza") return plazaSpot(); return [OX + Math.random() * (8 * CELLW - CW), wtop(Math.floor(Math.random() * GRID))]; }
 function jump(w, p) { w.x = p[0]; w.y = p[1]; w.tx = w.x; w.ty = w.y; w.route = []; w.moving = false; w.wait = Math.random() * 2; }
 function applyMoves(initial) {
   walkers.forEach(function (w) {
@@ -1486,11 +1606,11 @@ function computeSeats() {
   return out;
 }
 function syncMeetings(initial) {
-  var seats = computeSeats(), today = todayStr(), now = Date.now(), lunchers = [];
-  if (WORLD_THEME !== "office") walkers.forEach(function (w) { var d0 = DATA[w.i]; if (!seats[w.id] && !onLeave(d0, today) && !isGone(d0, now) && presenceOf(d0, now) === "lunch") lunchers.push(w.id); });
+  var seats = WORLD_THEME === "plaza" ? {} : computeSeats(), today = todayStr(), now = Date.now(), lunchers = [];
+  if (WORLD_THEME === "battlefield") walkers.forEach(function (w) { var d0 = DATA[w.i]; if (!seats[w.id] && !onLeave(d0, today) && !isGone(d0, now) && presenceOf(d0, now) === "lunch") lunchers.push(w.id); });
   lunchers.sort(); LUNCH.n = lunchers.length;
   walkers.forEach(function (w) {
-    var d = DATA[w.i], s = seats[w.id], pc = pcUseOf(d), mode, tag = "", key, quick = initial || reduceMotion || w.mode === "gone", sp, h, t2;
+    var d = DATA[w.i], s = seats[w.id], pc = pcUseOf(d), mode, tag = "", key, quick = initial || reduceMotion || !autoMoveOn || w.mode === "gone", sp, h, t2, prev = w.mode, hold = posOf(w);
     if (onLeave(d, today)) mode = "leave";
     else if (isGone(d, now)) mode = "gone";
     else if (s) mode = "meet";
@@ -1499,21 +1619,111 @@ function syncMeetings(initial) {
     key = WORLD_THEME + ":" + mode + ":" + (mode === "meet" ? s.k + ":" + s.x + ":" + s.y : mode === "pc" ? pc.idx : "") + tag + (shouldSitAtDesk(d, now) ? ":working" : ":off-desk") + (mode === "away" && tag === "lunch" ? ":" + lunchers.indexOf(w.id) + "/" + lunchers.length : "");
     if (w.pkey === key) return;
     w.pkey = key; w.mode = mode; w.tag = tag; w.seat = mode === "meet" ? s : null; w.pc = mode === "pc" ? pc : null;
+    if (!autoMoveOn && hold && (mode === "desk" || mode === "away")) { if (prev === "meet" || prev === "pc") jump(w, [hold.x, hold.y]); return; }
     if (mode === "gone") { w.route = []; w.moving = false; w.seat = null; }
     else if (mode === "leave") { sp = leaveSpot(w); w.route = []; w.moving = false; w.x = sp[0]; w.y = sp[1]; w.tx = w.x; w.ty = w.y; }
     else if (mode === "meet") { if (quick) jump(w, [s.x, s.y]); else goTo(w, [s.x, s.y]); }
     else if (mode === "pc") { t2 = [pc.x, pc.y]; if (quick) jump(w, t2); else goTo(w, t2); }
-    else if (mode === "away") { t2 = tag === "lunch" && WORLD_THEME !== "office" ? lunchSpot(lunchers.indexOf(w.id), lunchers.length) : awayDest(); if (quick) jump(w, t2); else goTo(w, t2); }
+    else if (mode === "away") { t2 = tag === "lunch" && WORLD_THEME === "battlefield" ? lunchSpot(lunchers.indexOf(w.id), lunchers.length) : awayDest(); if (quick) jump(w, t2); else goTo(w, t2); }
     else { h = homeDest(w); if (quick) jump(w, h); else goTo(w, h); }
   });
   if (typeof updateOT === "function") updateOT();
 }
 
+/* ---- 방향키 이동 · 위치 공유(pos) · 자동 이동 토글 · 건물 입장 ---- */
+var autoMoveOn = false, posLoaded = false;
+try { autoMoveOn = localStorage.getItem("ops-automove") === "on"; } catch (e) {}
+var POS_LIVE_MS = 8000, POS_TTL_MS = 12 * 3600 * 1000, KEY_SPEED = 120, POS_SEND_MS = 400, SHOP_COOLDOWN_MS = 1500;
+var keys = { up: false, down: false, left: false, right: false }, posSeen = {}, posSentAt = 0, nearShop = null, shopOpenAt = 0, shopNotice = "", shopNoticeAt = 0;
+function ownWalker() { var i = currentCharacterIndex(); return i >= 0 ? walkers[i] || null : null; }
+function posOf(w) {
+  var p = store.pos && store.pos[w.id];
+  return p && p.w === WORLD_THEME && typeof p.x === "number" && typeof p.y === "number" && Date.now() - (+p.t || 0) < POS_TTL_MS ? p : null;
+}
+function posLive(id) { var seen = posSeen[id]; return !!seen && Date.now() - seen.at < POS_LIVE_MS; }
+function sendPos(w) {
+  var doc = { x: Math.round(w.x), y: Math.round(w.y), t: Date.now(), w: WORLD_THEME };
+  store.pos[w.id] = doc; w.posT = doc.t; posSentAt = doc.t; posSeen[w.id] = { t: doc.t, at: doc.t };
+  if (dbRef) dbRef.doc("pos/" + w.id).set(doc).then(null, function () {});
+  else { try { localStorage.setItem("ops-pos", JSON.stringify(store.pos)); } catch (e) {} }
+}
+function inSeatArea(w) {
+  var h = w.hd, cx = w.x + CW / 2, cy = w.y + CH / 2;
+  return !!h && h.kind === "person" && cx >= h.cx - 42 && cx <= h.cx + 42 && cy >= h.ry - 8 && cy <= h.ry + 66;
+}
+function keyMove(w, dt) {
+  var dx = (keys.right ? 1 : 0) - (keys.left ? 1 : 0), dy = (keys.down ? 1 : 0) - (keys.up ? 1 : 0), len, step, nx, ny, inSeat;
+  if (!dx && !dy) {
+    w.seatHold = false;
+    if (w.keyOn) { w.keyOn = false; w.moving = false; sendPos(w); }
+    return false;
+  }
+  if (w.seatHold) { w.moving = false; w.keyAt = Date.now(); return true; }
+  if (!w.keyOn) w.inSeat = inSeatArea(w);
+  len = Math.hypot(dx, dy); step = KEY_SPEED * Math.min(dt, 0.05);
+  nx = Math.max(0, Math.min(MAP_W - CW, w.x + dx / len * step));
+  ny = Math.max(0, Math.min(MAP_H - CH, w.y + dy / len * step));
+  if (WORLD_THEME !== "plaza" || !plazaBlocked(nx, ny)) { w.x = nx; w.y = ny; }
+  else if (!plazaBlocked(nx, w.y)) w.x = nx;
+  else if (!plazaBlocked(w.x, ny)) w.y = ny;
+  w.route = []; w.tx = w.x; w.ty = w.y; w.moving = true; w.anim += dt; w.keyOn = true; w.keyAt = Date.now();
+  if (WORLD_THEME === "office" && w.mode === "desk") {
+    inSeat = inSeatArea(w);
+    if (inSeat && !w.inSeat) {
+      w.x = w.hd.x; w.y = w.hd.y; w.tx = w.x; w.ty = w.y; w.moving = false; w.inSeat = true; w.seatHold = true;
+      sendPos(w);
+      return true;
+    }
+    w.inSeat = inSeat;
+  }
+  if (w.keyAt - posSentAt > POS_SEND_MS) sendPos(w);
+  return true;
+}
+function followPos(w, p, dt) {
+  var dx = p.x - w.x, dy = p.y - w.y, d = Math.hypot(dx, dy), step = 170 * dt;
+  w.route = []; w.posT = p.t;
+  if (d > 260 || d <= step) { w.x = p.x; w.y = p.y; w.moving = false; }
+  else { w.x += dx / d * step; w.y += dy / d * step; w.moving = true; w.anim += dt; }
+  w.tx = w.x; w.ty = w.y;
+}
+function openShop(shop) {
+  var now = Date.now(), win;
+  if (now - shopOpenAt < SHOP_COOLDOWN_MS) return;
+  shopOpenAt = now;
+  win = window.open(shop.url, "_blank", "noopener,noreferrer");
+  if (!win) { shopNotice = "팝업이 차단되었어요. 팝업을 허용해 주세요"; shopNoticeAt = now; }
+}
+var KEYMAP = { ArrowUp: "up", ArrowDown: "down", ArrowLeft: "left", ArrowRight: "right" };
+function typingTarget(t) { var n = t && t.tagName; return n === "INPUT" || n === "TEXTAREA" || n === "SELECT" || !!(t && t.isContentEditable); }
+function worldActive() { var el = document.getElementById("world"); return !!el && !el.hidden; }
+document.addEventListener("keydown", function (e) {
+  var k = KEYMAP[e.key];
+  if (e.ctrlKey || e.metaKey || e.altKey || typingTarget(e.target) || !worldActive()) return;
+  if (k) { if (!ownWalker()) return; keys[k] = true; e.preventDefault(); return; }
+  if (e.key === "Enter" && !e.repeat && nearShop && !/^(BUTTON|A)$/.test(e.target.tagName)) { e.preventDefault(); openShop(nearShop); }
+});
+document.addEventListener("keyup", function (e) { var k = KEYMAP[e.key]; if (k) keys[k] = false; });
+window.addEventListener("blur", function () { keys.up = keys.down = keys.left = keys.right = false; });
 function update(dt) {
-  if (reduceMotion) return;
+  var me = ownWalker();
+  nearShop = WORLD_THEME === "plaza" && me ? plazaShopAt(me.x, me.y) : null;
+  if (reduceMotion) {
+    if (me) keyMove(me, dt);
+    walkers.forEach(function (w) { var p = w !== me && posOf(w); if (p && posLive(w.id)) { jump(w, [p.x, p.y]); w.posT = p.t; } });
+    return;
+  }
   updateBossWalker(dt);
   walkers.forEach(function (w) {
     if (w.mode === "leave" || w.mode === "gone") { w.moving = false; return; }
+    var mine = w === me, p = posOf(w);
+    if (mine && keyMove(w, dt)) return;
+    if (p && !mine && posLive(w.id)) { followPos(w, p, dt); return; }
+    if (p && w.posT !== p.t && !(mine && Date.now() - (w.keyAt || 0) < 1500)) {
+      w.posT = p.t;
+      if (!autoMoveOn && (w.mode === "desk" || w.mode === "away")) jump(w, [p.x, p.y]);
+    }
+    if (mine && Date.now() - (w.keyAt || 0) < 3000) { w.moving = false; return; }
+    if (!autoMoveOn) { w.route = []; w.moving = false; return; }
     if (w.route.length) {
       var p = w.route[0], rx = p[0] - w.x, ry = p[1] - w.y, rd = Math.hypot(rx, ry), rm = 70 * dt;
       if (rd <= rm) {
@@ -1539,7 +1749,7 @@ function update(dt) {
     if (!w.a) { w.moving = false; return; }
     if (w.wait > 0) {
       w.wait -= dt; w.moving = false;
-      if (w.wait <= 0) { w.tx = w.a.x0 + Math.random() * (w.a.x1 - w.a.x0); w.ty = w.a.y0 + Math.random() * (w.a.y1 - w.a.y0); }
+      if (w.wait <= 0) { if (WORLD_THEME === "plaza") { var ps = plazaSpot(); w.tx = ps[0]; w.ty = ps[1]; } else { w.tx = w.a.x0 + Math.random() * (w.a.x1 - w.a.x0); w.ty = w.a.y0 + Math.random() * (w.a.y1 - w.a.y0); } }
       return;
     }
     var dx = w.tx - w.x, dy = w.ty - w.y, dist = Math.hypot(dx, dy), mv = w.speed * dt;
@@ -1626,42 +1836,6 @@ function drawHealthBattery(x, y, d, characterHeight) {
   if (value) mctx.fillRect(px + 2, py + 2, Math.round(15 * value / 100), 4);
   mctx.restore();
 }
-function drawSpaceBodies() {
-  var t = lastT / 1000, i, x, y, blink;
-  for (i = 0; i < 42; i++) {
-    x = (47 + i * 173) % MAP_W; y = (31 + i * 97) % MAP_H;
-    if ((x >= 244 && x <= 658 && y >= 228 && y <= 468) || (x >= 940 && y <= 710) || (y >= 708 && x <= 950)) continue;
-    blink = 0.25 + 0.65 * (0.5 + 0.5 * Math.sin(t * 1.7 + i * 2.13));
-    mctx.globalAlpha = blink; mctx.fillStyle = i % 5 === 0 ? "#b9efff" : "#dbe7ff";
-    mctx.fillRect(Math.round(x), Math.round(y), i % 7 === 0 ? 3 : 2, 2);
-    if (i % 9 === 0 && blink > 0.72) {
-      mctx.globalAlpha = blink * 0.7; mctx.fillRect(x + 1, y - 2, 1, 6); mctx.fillRect(x - 1, y, 5, 1);
-    }
-  }
-  function planet(ox, oy, orbitX, orbitY, radius, phase, base, band, ring) {
-    var angle = t / phase, px = ox + Math.cos(angle) * orbitX, py = oy + Math.sin(angle) * orbitY;
-    mctx.globalAlpha = 0.28; mctx.strokeStyle = ring; mctx.lineWidth = 1;
-    mctx.beginPath(); mctx.ellipse(ox, oy, orbitX, orbitY, 0, 0, Math.PI * 2); mctx.stroke();
-    mctx.save();
-    mctx.globalAlpha = 0.9; mctx.fillStyle = ring; mctx.beginPath(); mctx.ellipse(px, py, radius + 5, radius * 0.42, -0.16, 0, Math.PI * 2); mctx.stroke();
-    mctx.fillStyle = base; mctx.beginPath(); mctx.arc(px, py, radius, 0, Math.PI * 2); mctx.fill();
-    mctx.clip(); mctx.fillStyle = band; mctx.fillRect(px - radius, py - radius * 0.28, radius * 2, Math.max(2, radius * 0.22));
-    mctx.fillRect(px - radius, py + radius * 0.38, radius * 2, Math.max(2, radius * 0.14));
-    mctx.globalAlpha = 0.65; mctx.fillStyle = "#e9f8ff"; mctx.fillRect(px - radius * 0.52, py - radius * 0.6, radius * 0.42, 2);
-    mctx.restore();
-  }
-  planet(152, 142, 24, 9, 13, 11, "#a84f64", "#dd9473", "#e5c676");
-  planet(840, 590, 18, 12, 9, 8, "#327f92", "#6bc6b0", "#91dcec");
-  var comet = (t % 24) / 24;
-  if (comet < 0.16) {
-    x = 660 + comet * 980; y = 90 + comet * 360;
-    mctx.globalAlpha = Math.sin(comet / 0.16 * Math.PI) * 0.8;
-    mctx.strokeStyle = "#b6efff"; mctx.lineWidth = 2;
-    mctx.beginPath(); mctx.moveTo(x - 24, y - 9); mctx.lineTo(x, y); mctx.stroke();
-    mctx.fillStyle = "#ffffff"; mctx.fillRect(Math.round(x) - 2, Math.round(y) - 2, 4, 4);
-  }
-  mctx.globalAlpha = 1;
-}
 function drawMonitor(s, lit) {
   var office = WORLD_THEME === "office";
   mctx.fillStyle = office ? "#22201e" : "#5b638f"; mctx.fillRect(s.cx - 18, s.ry + 12, 36, 21);
@@ -1710,14 +1884,6 @@ function drawBossVisitor() {
     mctx.fillStyle = "#d4b18f"; mctx.fillRect(17, 101 - step, 12, 9); mctx.fillRect(72, 101 + step, 12, 9);
     mctx.fillStyle = "#d8bd83"; mctx.fillRect(62, 69, 6, 3); mctx.fillRect(32, 69, 5, 3);
     mctx.fillStyle = "#20232a"; mctx.fillRect(35, 119, 4, 18); mctx.fillRect(57, 119, 4, 18);
-  } else if (WORLD_THEME === "space") {
-    mctx.fillStyle = "#6c4ec2"; mctx.fillRect(28, 63, 44, 74); mctx.fillRect(34, 132 + step, 13, 17); mctx.fillRect(54, 132 - step, 13, 17);
-    mctx.fillStyle = "#56d6a3"; mctx.fillRect(20, 72, 12, 45); mctx.fillRect(68, 72, 12, 45); mctx.fillRect(38, 24, 25, 26);
-    mctx.fillStyle = "#91f0c1"; mctx.beginPath(); mctx.ellipse(50, 29, 23, 24, 0, 0, Math.PI * 2); mctx.fill();
-    mctx.fillStyle = "#182331"; mctx.beginPath(); mctx.ellipse(41, 29, 6, 9, 0, 0, Math.PI * 2); mctx.ellipse(59, 29, 6, 9, 0, 0, Math.PI * 2); mctx.fill();
-    mctx.fillStyle = "#d5fff0"; mctx.fillRect(39, 26, 3, 4); mctx.fillRect(57, 26, 3, 4);
-    mctx.strokeStyle = "#91f0c1"; mctx.lineWidth = 4; mctx.beginPath(); mctx.moveTo(40, 9); mctx.lineTo(30, -3); mctx.moveTo(60, 9); mctx.lineTo(70, -3); mctx.stroke();
-    mctx.fillStyle = "#e5a7ff"; mctx.fillRect(44, 45, 12, 10); mctx.fillRect(42, 151, 17, 4);
   } else {
     mctx.fillStyle = "#33251e"; mctx.fillRect(27, 116 + step, 18, 32); mctx.fillRect(54, 116 - step, 18, 32);
     mctx.fillStyle = "#d8b48b"; mctx.fillRect(22, 144 + step, 26, 9); mctx.fillRect(51, 144 - step, 27, 9);
@@ -1735,13 +1901,13 @@ function drawBossVisitor() {
 }
 function draw() {
   mctx.globalAlpha = 1; mctx.drawImage(bg, 0, 0);
-  if (WORLD_THEME === "space") drawSpaceBodies();
+  if (WORLD_THEME === "plaza") drawPlazaLive();
   drawFires();
-  Object.keys(REGIONS).forEach(function (u) {
+  if (WORLD_THEME !== "plaza") Object.keys(REGIONS).forEach(function (u) {
     var dim = regionDim(u);
     if (dim) { var g = REGIONS[u]; mctx.globalAlpha = dim; mctx.fillStyle = T.bg; mctx.fillRect(g.x, g.y, g.w, g.h); }
   });
-  Object.keys(invCount).forEach(function (u) {
+  if (WORLD_THEME !== "plaza") Object.keys(invCount).forEach(function (u) {
     var g = REGIONS[u], t, w2;
     if (!g || !invCount[u]) return;
     t = "침입 " + invCount[u];
@@ -1752,7 +1918,7 @@ function draw() {
     mctx.fillStyle = "#fff"; mctx.fillText(t, g.x + g.w - 6 - w2 + 6, g.y + 36);
   });
   mctx.globalAlpha = 1;
-  var sn = snackNow();
+  var sn = WORLD_THEME === "plaza" ? {} : snackNow();
   Object.keys(sn).forEach(function (u) {
     var g = REGIONS[u]; if (!g) return;
     mctx.globalAlpha = regionDim(u) ? 0.4 : 1;
@@ -1762,7 +1928,7 @@ function draw() {
     sn[u].items.forEach(function (it, k) { mctx.drawImage(foodIcon(it), g.x + 8 + k * 18, g.y + g.h - 24); });
   });
   mctx.globalAlpha = 1;
-  TABLES.forEach(function (tb, k) {
+  if (WORLD_THEME !== "plaza") TABLES.forEach(function (tb, k) {
     var info = seatInfo[k];
     mctx.fillStyle = info ? "#a37a4a" : "#5b4530";
     mctx.beginPath(); mctx.ellipse(tb.x, tb.y, 28, 17, 0, 0, Math.PI * 2); mctx.fill();
@@ -1804,18 +1970,18 @@ function draw() {
     if (isSitting(w) || isUsingPc(w)) return;
     var d = DATA[w.i], on = mapOn(d), off = onLeave(d, today), gn = w.mode === "gone";
     var ph = Math.floor(w.anim * 5), fr = w.moving ? (ph % 2 ? 1 : 2) : 0, bob = w.moving && ph % 2 ? 2 : 0;
-    var x = Math.round(w.x), y = Math.round(w.y) - bob, sitting = w.seat && !w.route.length;
+    var x = Math.round(w.x), y = Math.round(w.y) - bob, sitting = w.seat && !w.route.length && Math.abs(w.x - w.seat.x) < 2 && Math.abs(w.y - w.seat.y) < 2;
     mctx.globalAlpha = on ? (gn ? 0.4 : 1) : 0.22;
     if (sitting) mctx.drawImage(spr[w.i][off ? 1 : 0][0], 0, 0, CW, 32, x, y, CW, 32);
     else mctx.drawImage(spr[w.i][off ? 1 : 0][fr], x, y);
     if (on) drawHealthBattery(x, y, d);
     if (w.mode === "away" && w.tag === "lunch") {
-      if (WORLD_THEME === "office") mctx.drawImage(foodIcon("밥"), x + 6, y - 22);
-      else if (!w.route.length) { if (WORLD_THEME === "space") spaceMeal(x + CW - 5, y + 12); else drumstick(x + CW - 5, y + 12 + (Math.sin(lastT / 170 + w.i * 1.7) > 0.3 ? -3 : 0)); }
-      else { if (WORLD_THEME === "space") spaceMeal(x + 8, y - 26); else drumstick(x + 8, y - 26); }
+      if (WORLD_THEME !== "battlefield") mctx.drawImage(foodIcon("밥"), x + 6, y - 22);
+      else if (!w.route.length) drumstick(x + CW - 5, y + 12 + (Math.sin(lastT / 170 + w.i * 1.7) > 0.3 ? -3 : 0));
+      else drumstick(x + 8, y - 26);
     } else if (w.mode === "away" && w.tag === "break") mctx.drawImage(foodIcon("커피"), x + 4, y - 32);
     var name = nameLines(d, off ? " · " + offLabel(d) : (gn ? " · 퇴근" : ""));
-    var presenceText = w.mode === "away" ? (w.tag === "lunch" ? (WORLD_THEME === "space" ? "우주식량" : "점심") : w.tag === "break" ? "휴식" : "자리비움") : "";
+    var presenceText = w.mode === "away" ? (w.tag === "lunch" ? "점심" : w.tag === "break" ? "휴식" : "자리비움") : "";
     var showWalkerName = showNames || hover === w || w.mode === "away";
     if (WORLD_THEME === "office" && w.hd && w.mode === "away") showWalkerName = hover === w;
     if (on && showWalkerName) label(name, x + CW / 2, y - 4, off || gn);
@@ -1825,6 +1991,12 @@ function draw() {
     if (on && hover === w) arrow(x + CW / 2, y - (presenceText ? name.length * 13 + 25 : 20));
     if (on && isOT(d) && !off) otBadge(x + CW - 2, y - 2);
   });
+  var meW = ownWalker();
+  if (meW && nearShop) {
+    var hintOn = shopNotice && Date.now() - shopNoticeAt < 4000;
+    mctx.globalAlpha = 1;
+    label(hintOn ? shopNotice : "Enter ▶ " + nearShop.n + " 열기", Math.round(meW.x) + CW / 2, Math.round(meW.y) - 22, false);
+  }
   var cnt = {};
   intr.forEach(function (o) {
     cnt[o.pid] = (cnt[o.pid] || 0) + 1;
@@ -1854,6 +2026,7 @@ function mapPoint(ev) {
   return [(ev.clientX - rc.left) * k, (ev.clientY - rc.top) * k];
 }
 function mapCommandAt(point) {
+  if (WORLD_THEME === "plaza") return null;
   if (point[0] >= MEET.x && point[0] <= MEET.x + MEET.w && point[1] >= MEET.y && point[1] <= MEET.y + 58) return "meet";
   if (point[0] >= 16 && point[0] <= 944 && point[1] >= 716 && point[1] <= 958) return "proj";
   return null;
@@ -1918,8 +2091,8 @@ mapEl.addEventListener("mousemove", function (ev) {
   if (command) {
     mapEl.style.cursor = "pointer";
     tip.innerHTML = command === "meet"
-      ? (WORLD_THEME === "space" ? "<b>우주 관제소</b> · 눌러서 회의를 만들어요" : WORLD_THEME === "office" ? "<b>회의실</b> · 눌러서 회의를 만들어요" : "<b>작전 막사</b> · 눌러서 회의를 만들어요")
-      : (WORLD_THEME === "space" ? "<b>우주항</b> · 눌러서 프로젝트 팀을 만들어요" : WORLD_THEME === "office" ? "<b>프로젝트 구역</b> · 눌러서 팀을 만들어요" : "<b>용병 진영</b> · 눌러서 프로젝트 팀을 만들어요");
+      ? (WORLD_THEME === "plaza" ? "<b>광장 회의 천막</b> · 눌러서 회의를 만들어요" : WORLD_THEME === "office" ? "<b>회의실</b> · 눌러서 회의를 만들어요" : "<b>작전 막사</b> · 눌러서 회의를 만들어요")
+      : (WORLD_THEME === "plaza" ? "<b>프로젝트 구역</b> · 눌러서 프로젝트 팀을 만들어요" : WORLD_THEME === "office" ? "<b>프로젝트 구역</b> · 눌러서 팀을 만들어요" : "<b>용병 진영</b> · 눌러서 프로젝트 팀을 만들어요");
   } else if (pc) {
     var pcUser = pcUserAt(pc), activeIndex = currentCharacterIndex(), activePc = activeIndex >= 0 && pcUseOf(DATA[activeIndex]);
     var isOwnPc = activePc && activePc.idx === pc.idx;
@@ -1930,7 +2103,7 @@ mapEl.addEventListener("mousemove", function (ev) {
     tip.innerHTML = "<b>내 지정 좌석</b> · 클릭하여 원래 자리로 돌아가요";
   } else if (h) {
     var d = DATA[h.i], sk = snackNow()[uOf(d)];
-    tip.innerHTML = "<b>" + nameHtml(d.n) + "</b>" + (ttl(d) ? " · " + esc(ttl(d)) : "") + "<br>" + esc(job(d)) + (onLeave(d) ? "<br>" + esc(offLabel(d)) : "") + (h.seat && !h.route.length ? "<br>회의 중" : "") + (h.mode === "away" ? "<br>" + (h.tag === "lunch" ? (WORLD_THEME === "space" ? "우주식량 중" : "점심 중") : h.tag === "break" ? "휴식 중" : "자리비움") : "") + (openTasks(d).length ? "<br>맡은 업무 " + openTasks(d).length + "건" : "") + (sk ? "<br>간식 당번 · " + esc(sk.items.join(", ")) : "");
+    tip.innerHTML = "<b>" + nameHtml(d.n) + "</b>" + (ttl(d) ? " · " + esc(ttl(d)) : "") + "<br>" + esc(job(d)) + (onLeave(d) ? "<br>" + esc(offLabel(d)) : "") + (h.seat && !h.route.length ? "<br>회의 중" : "") + (h.mode === "away" ? "<br>" + (h.tag === "lunch" ? "점심 중" : h.tag === "break" ? "휴식 중" : "자리비움") : "") + (openTasks(d).length ? "<br>맡은 업무 " + openTasks(d).length + "건" : "") + (sk ? "<br>간식 당번 · " + esc(sk.items.join(", ")) : "");
   } else if (hi) {
     var pi = indexOfId(hi.pid);
     tip.innerHTML = "<b>침입자</b> · " + esc(hi.text) + "<br>담당 " + (pi >= 0 ? esc(DATA[pi].n) : "") + " · 누르면 업무 목록이 열려요";
@@ -2555,34 +2728,46 @@ function setView(v) {
 document.getElementById("views").addEventListener("click", function (e) { var b = e.target.closest(".nb"); if (b) setView(b.dataset.v); });
 syncIntruders(true); syncMeetings(true);
 setInterval(function () { syncMeetings(false); }, 5000);
+setInterval(function () { autoCompleteDue(); syncIntruders(false); renderGrid(); if (openIdx !== null) renderTasks(); }, 30000);
 document.getElementById("autolunch").addEventListener("change", function () { syncMeetings(false); });
+(function () {
+  var box = document.getElementById("automove");
+  if (!box) return;
+  box.checked = autoMoveOn;
+  box.addEventListener("change", function () {
+    autoMoveOn = box.checked;
+    try { localStorage.setItem("ops-automove", autoMoveOn ? "on" : "off"); } catch (e) {}
+    walkers.forEach(function (w) {
+      if (!autoMoveOn && w.route.length) jump(w, w.route[w.route.length - 1]);
+      w.pkey = "";
+    });
+    syncMeetings(false);
+  });
+})();
 function fillCfg() { var c = cfg(); document.getElementById("cfgls").value = c.ls; document.getElementById("cfgle").value = c.le; document.getElementById("cfgoe").value = c.oe; document.getElementById("boss-visit").checked = c.bossVisit; syncBossVisitUI(); }
 var COPY_FIELDS = [
-  ["홈 소개", [["ledeOffice", "사무실 테마"], ["ledeBattlefield", "전장 테마"], ["ledeSpace", "우주 테마"], ["ledeSecond", "홈 소개 보조 문구"]]],
-  ["지도 안내", [["mapOffice", "사무실"], ["mapBattlefield", "전장"], ["mapSpace", "우주"]]],
-  ["직원·영웅 안내", [["teamOffice", "사무실"], ["teamBattlefield", "전장"], ["teamSpace", "우주"], ["teamNoteOffice", "사무실 권한 안내"], ["teamNoteBattlefield", "전장 권한 안내"], ["teamNoteSpace", "우주 권한 안내"]]],
-  ["회의·프로젝트·간식·공지", [["meetingOffice", "사무실 회의"], ["meetingBattlefield", "전장 회의"], ["meetingSpace", "우주 회의"], ["projectOffice", "사무실 프로젝트 안내"], ["projectOther", "전장·우주 프로젝트 안내"], ["snackOffice", "사무실 간식 안내"], ["snackOther", "전장·우주 간식 안내"], ["notice", "공지 안내"]]],
-  ["하단 사용 안내", [["footerOne", "첫 번째 안내"], ["footerTwoOffice", "사무실 두 번째 안내"], ["footerTwoOther", "전장·우주 두 번째 안내"], ["footerThree", "세 번째 안내"]]]
+  ["홈 소개", [["siteLead", "사이트 한 줄 소개"], ["siteDesc", "사이트 설명"]]],
+  ["지도 안내", [["mapOffice", "사무실"], ["mapPlaza", "광장"], ["mapBattlefield", "전장"]]],
+  ["직원·영웅 안내", [["teamOffice", "사무실"], ["teamBattlefield", "전장"], ["teamNoteOffice", "사무실 권한 안내"], ["teamNoteBattlefield", "전장 권한 안내"]]],
+  ["회의·프로젝트·간식·공지", [["meetingOffice", "사무실 회의"], ["meetingPlaza", "광장 회의"], ["meetingBattlefield", "전장 회의"], ["projectOffice", "사무실 프로젝트 안내"], ["projectPlaza", "광장 프로젝트 안내"], ["projectOther", "전장 프로젝트 안내"], ["snackOffice", "사무실 간식 안내"], ["snackOther", "전장 간식 안내"], ["notice", "공지 안내"]]],
+  ["하단 사용 안내", [["footerOne", "첫 번째 안내"], ["footerTwoOffice", "사무실 두 번째 안내"], ["footerTwoOther", "전장·광장 두 번째 안내"], ["footerThree", "세 번째 안내"]]]
 ];
 var COPY_DEFAULTS = {
-  ledeOffice: "프론트와 백오피스, 두 개의 차원에서 {count}명의 직원이 서비스를 지킵니다.",
-  ledeBattlefield: "프론트와 백오피스, 두 개의 차원에서 {count}명의 영웅이 전장을 지킵니다.",
-  ledeSpace: "프론트와 백오피스, 두 개의 차원에서 {count}명의 승무원이 우주를 지킵니다.",
-  ledeSecond: "차원과 유니버스를 고르거나 이름과 스킬로 검색해서 동료를 만나보세요.",
+  siteLead: "모든 팀을 하나로 연결하는 올인원 가상 협업 공간, [ 메타데스크 ] 입니다.",
+  siteDesc: "다양한 부서와 직무(도메인)를 매력적인 캐릭터와 유니버스로 시각화하여 더 즐겁고 직관적인 가상 오피스 환경을 제공합니다.",
   mapOffice: "64개 자리 중 62개는 직원 좌석이고, FTP·ER 전용 PC 2개는 잠시 사용할 수 있어요. PC 사용 중에도 지정 좌석과 닉네임은 유지됩니다. 본인 좌석을 클릭하면 돌아갑니다.",
   mapBattlefield: "영웅은 상태와 회의에 따라 전장과 각 유니버스를 오갑니다. 캐릭터 시트에서 상태·근태·업무를 관리하고, 회의가 끝나면 원래 활동 구역으로 돌아갑니다.",
-  mapSpace: "승무원은 상태와 회의에 따라 우주 기지와 각 유니버스를 오갑니다. 캐릭터 시트에서 상태·근태·업무를 관리하고, 회의가 끝나면 원래 활동 구역으로 돌아갑니다.",
+  mapPlaza: "광장의 6개 쇼핑몰 건물을 방향키로 둘러보세요. 내 캐릭터는 방향키로 직접 움직이고, 건물 입구에서 Enter를 누르면 해당 사이트가 새 창으로 열립니다. 다른 캐릭터는 각 계정 소유자가 움직일 때만 이동합니다.",
   teamOffice: "계정 캐릭터는 회원가입 후 본인이 만들거나 관리자가 계정에 연결합니다. 이 화면에서 추가하는 명단 전용 직원은 지도와 명단에 표시됩니다. 닉네임과 대분류는 필수이며, 소분류·직급·직업은 선택 사항입니다. 명단 직원의 추가·제거와 계정 캐릭터 연결·삭제는 관리자만 할 수 있습니다.",
   teamBattlefield: "계정 캐릭터는 회원가입 후 본인이 만들거나 관리자가 계정에 연결합니다. 이 화면에서 추가하는 명단 전용 영웅은 지도와 명단에 표시됩니다. 닉네임과 대분류는 필수이며, 소분류·직급·직업은 선택 사항입니다. 명단 영웅의 추가·제거와 계정 캐릭터 연결·삭제는 관리자만 할 수 있습니다.",
-  teamSpace: "계정 캐릭터는 회원가입 후 본인이 만들거나 관리자가 계정에 연결합니다. 이 화면에서 추가하는 명단 전용 승무원은 지도와 명단에 표시됩니다. 닉네임과 대분류는 필수이며, 소분류·직급·직업은 선택 사항입니다. 명단 승무원의 추가·제거와 계정 캐릭터 연결·삭제는 관리자만 할 수 있습니다.",
   teamNoteOffice: "명단 직원의 추가·제거와 계정 캐릭터 연결·삭제는 관리자 권한이 필요합니다. 일반 사용자는 회원가입 후 본인 계정의 캐릭터를 만들 수 있습니다.",
   teamNoteBattlefield: "명단 영웅의 추가·제거와 계정 캐릭터 연결·삭제는 관리자 권한이 필요합니다. 일반 사용자는 회원가입 후 본인 계정의 캐릭터를 만들 수 있습니다.",
-  teamNoteSpace: "명단 승무원의 추가·제거와 계정 캐릭터 연결·삭제는 관리자 권한이 필요합니다. 일반 사용자는 회원가입 후 본인 계정의 캐릭터를 만들 수 있습니다.",
   meetingOffice: "회의를 시작하면 참석 직원이 사무실 오른쪽 회의실로 이동합니다. 회의실은 3개이며 회의 하나에 최대 8명까지 참석할 수 있습니다. 회의가 끝나면 원래 자리로 돌아가고, 연차 중인 직원은 참석할 수 없습니다.",
   meetingBattlefield: "회의를 시작하면 참석 영웅이 지도 아래쪽 작전 테이블로 이동합니다. 테이블은 3개이며 회의 하나에 최대 8명까지 참석할 수 있습니다. 회의가 끝나면 원래 자리로 돌아가고, 연차 중인 영웅은 참석할 수 없습니다.",
-  meetingSpace: "회의를 시작하면 참석 승무원이 지도 아래쪽 관제 테이블로 이동합니다. 테이블은 3개이며 회의 하나에 최대 8명까지 참석할 수 있습니다. 회의가 끝나면 원래 자리로 돌아가고, 연차 중인 승무원은 참석할 수 없습니다.",
+  meetingPlaza: "회의를 시작하면 참석 직원 목록이 관리됩니다. 광장 지도에는 회의 공간이 없어 참석자도 지도에서 이동하지 않습니다. 연차 중인 직원은 참석할 수 없습니다.",
   projectOffice: "프로젝트 팀을 만들고 기존 직원을 참여시킬 수 있습니다. 각 팀은 지도에 전용 구역을 가지며, 프로젝트 팀은 최대 3개까지 운영할 수 있습니다.",
   projectOther: "용병단을 만들고 기존 영웅을 참여시킬 수 있습니다. 각 팀은 지도에 전용 구역을 가지며, 용병단은 최대 3개까지 운영할 수 있습니다.",
+  projectPlaza: "프로젝트 팀을 만들고 기존 직원을 참여시킬 수 있습니다. 광장 지도에는 팀 구역이 표시되지 않으며, 프로젝트 팀은 최대 3개까지 운영할 수 있습니다.",
   snackOffice: "간식 당번 기간과 담당 팀, 먹을거리를 등록하세요. 기간 중에는 팀 구역과 팀원 정보에 간식이 표시됩니다.",
   snackOther: "보급 담당 기간과 팀, 먹을거리를 등록하세요. 기간 중에는 각 유니버스 구역과 팀원 정보에 보급품이 표시됩니다.",
   notice: "공지는 모든 사용자에게 표시됩니다. 관리자 또는 직급이 팀장·상무인 캐릭터의 소유자만 작성할 수 있습니다.",
@@ -2596,15 +2781,15 @@ function copyValue(key) {
   return typeof value === "string" ? value : COPY_DEFAULTS[key];
 }
 function copyVariant(base) {
-  return WORLD_THEME === "office" ? base + "Office" : base + (WORLD_THEME === "space" ? "Space" : "Battlefield");
+  return WORLD_THEME === "office" || (WORLD_THEME === "plaza" && base !== "map" && base !== "meeting") ? base + "Office" : base + (WORLD_THEME === "plaza" ? "Plaza" : "Battlefield");
 }
 function applySiteCopy() {
   var count = document.getElementById("total"), first = document.getElementById("lede-first"), second = document.getElementById("lede-second");
-  if (first) first.textContent = copyValue(copyVariant("lede")).replace(/\{count\}/g, count ? count.textContent : "0");
-  if (second) second.textContent = copyValue("ledeSecond");
+  if (first) first.textContent = copyValue("siteLead").replace(/\{count\}/g, count ? count.textContent : "0");
+  if (second) second.textContent = copyValue("siteDesc");
   [["map-guide", copyVariant("map")], ["team-guide", copyVariant("team")], ["teamnote", copyVariant("teamNote")],
-    ["meeting-guide", copyVariant("meeting")], ["project-guide", WORLD_THEME === "office" ? "projectOffice" : "projectOther"],
-    ["snack-guide", WORLD_THEME === "office" ? "snackOffice" : "snackOther"], ["notice-guide", "notice"],
+    ["meeting-guide", copyVariant("meeting")], ["project-guide", WORLD_THEME === "plaza" ? "projectPlaza" : WORLD_THEME === "office" ? "projectOffice" : "projectOther"],
+    ["snack-guide", WORLD_THEME !== "battlefield" ? "snackOffice" : "snackOther"], ["notice-guide", "notice"],
     ["footer-guide-1", "footerOne"], ["footer-guide-2", WORLD_THEME === "office" ? "footerTwoOffice" : "footerTwoOther"],
     ["footer-guide-3", "footerThree"]].forEach(function (entry) {
     var element = document.getElementById(entry[0]);
@@ -2681,34 +2866,34 @@ function syncBossVisitUI() {
   if (siren) siren.hidden = !active;
 }
 function syncOfficeCopy() {
-  var office = WORLD_THEME === "office", space = WORLD_THEME === "space", worldName = office ? "사무실" : space ? "우주 기지" : "전장";
+  var office = WORLD_THEME === "office", plaza = WORLD_THEME === "plaza", worldName = office ? "사무실" : plaza ? "광장" : "전장";
   var mapButton = document.querySelector('#views [data-v="map"] span'), worldSection = document.getElementById("world");
   var groups = document.querySelectorAll("#views .nlab"), group = groups[0], roster = document.querySelector('#views [data-v="list"] span'), team = document.querySelector('#views [data-v="team"] span'), teamTitle = document.querySelector("#teampane h2"), projectLabel = document.querySelector("#projpane .project-hero-label"), picker = document.getElementById("project-hero-pick"), map = document.getElementById("map"), world = document.getElementById("world");
   var projectTitle = document.querySelector("#projpane h2"), meetingTitle = document.querySelector("#meetpane h2"), snackTitle = document.querySelector("#snackpane h2");
   if (mapButton) mapButton.textContent = worldName;
   if (worldSection) worldSection.setAttribute("aria-label", worldName + " 지도");
-  if (group) group.textContent = office ? "직원" : space ? "승무원" : "영웅";
-  if (groups[1]) groups[1].textContent = office ? "업무" : space ? "임무" : "군영";
-  if (roster) roster.textContent = office ? "직원 명단" : space ? "승무원 명단" : "영웅 명부";
-  if (team) team.textContent = office ? "직원 관리" : space ? "승무원 모집" : "영웅 모집";
-  if (teamTitle) teamTitle.textContent = office ? "직원 관리" : space ? "승무원 모집" : "영웅 모집";
-  if (projectLabel) projectLabel.textContent = office ? "기존 직원을 프로젝트팀에 합류시키기 (선택)" : space ? "기존 승무원을 원정대에 합류시키기 (선택)" : "기존 영웅을 용병단에 합류시키기 (선택)";
-  if (picker) picker.setAttribute("aria-label", office ? "프로젝트에 합류시킬 기존 직원" : space ? "원정대에 합류시킬 기존 승무원" : "용병단에 합류시킬 기존 영웅");
+  if (group) group.textContent = (office || plaza) ? "직원" : "영웅";
+  if (groups[1]) groups[1].textContent = (office || plaza) ? "업무" : "군영";
+  if (roster) roster.textContent = (office || plaza) ? "직원 명단" : "영웅 명부";
+  if (team) team.textContent = (office || plaza) ? "직원 관리" : "영웅 모집";
+  if (teamTitle) teamTitle.textContent = (office || plaza) ? "직원 관리" : "영웅 모집";
+  if (projectLabel) projectLabel.textContent = (office || plaza) ? "기존 직원을 프로젝트팀에 합류시키기 (선택)" : "기존 영웅을 용병단에 합류시키기 (선택)";
+  if (picker) picker.setAttribute("aria-label", (office || plaza) ? "프로젝트에 합류시킬 기존 직원" : "용병단에 합류시킬 기존 영웅");
   var projectNav = document.querySelector('#views [data-v="proj"] span'), meetingNav = document.querySelector('#views [data-v="meet"] span'), snackNav = document.querySelector('#views [data-v="snack"] span'), chatNav = document.querySelector('#views [data-v="chat"] span');
-  if (projectNav) projectNav.textContent = office ? "프로젝트 팀" : space ? "원정대" : "용병단";
-  if (meetingNav) meetingNav.textContent = office ? "회의" : space ? "함교 회의" : "작전 회의";
-  if (snackNav) snackNav.textContent = office ? "간식" : "보급";
-  if (chatNav) chatNav.textContent = office ? "공지·채팅" : "전령";
-  if (projectTitle) projectTitle.textContent = office ? "프로젝트 팀" : space ? "원정대" : "용병단";
-  if (meetingTitle) meetingTitle.textContent = office ? "회의" : space ? "함교 회의" : "작전 회의";
-  if (snackTitle) snackTitle.textContent = office ? "간식 담당" : "보급 담당";
+  if (projectNav) projectNav.textContent = (office || plaza) ? "프로젝트 팀" : "용병단";
+  if (meetingNav) meetingNav.textContent = (office || plaza) ? "회의" : "작전 회의";
+  if (snackNav) snackNav.textContent = (office || plaza) ? "간식" : "보급";
+  if (chatNav) chatNav.textContent = (office || plaza) ? "공지·채팅" : "전령";
+  if (projectTitle) projectTitle.textContent = (office || plaza) ? "프로젝트 팀" : "용병단";
+  if (meetingTitle) meetingTitle.textContent = (office || plaza) ? "회의" : "작전 회의";
+  if (snackTitle) snackTitle.textContent = (office || plaza) ? "간식 담당" : "보급 담당";
   if (world) world.setAttribute("aria-label", worldName + " 지도");
   applySiteCopy();
   if (map) map.setAttribute("aria-label", worldName + " 지도. " + document.getElementById("map-guide").textContent);
   syncBossVisitUI();
 }
 function setWorldTheme(theme, save) {
-  WORLD_THEME = theme === "space" || theme === "battlefield" ? theme : "office";
+  WORLD_THEME = theme === "plaza" || theme === "battlefield" ? theme : "office";
   document.documentElement.setAttribute("data-world-theme", WORLD_THEME);
   if (save) { try { localStorage.setItem("ops-world-theme", WORLD_THEME); } catch (e) {} }
   var buttons = document.querySelectorAll("#world-themebar .side");
@@ -2739,9 +2924,9 @@ if (window.claude && window.claude.use) {
     currentCharacterId = u && u.info ? u.info.characterId : null;
     currentCanAnnounce = currentRole === "ADMIN" || !!(u && u.info && u.info.canAnnounce);
     return u && u.can ? u.can("data.write") : null;
-  }).then(function (v) { canWrite = v; refreshPanes(); renderGrid(); renderCopyEditor(); }, function () {});
+  }).then(function (v) { canWrite = v; refreshPanes(); renderGrid(); renderCopyEditor(); autoCompleteDue(); }, function () {});
   window.claude.use("db").then(function (db) {
-    if (!db) return;
+    if (!db) { if (window.bootDone) window.bootDone(); return; }
     dbRef = db;
     db.privateChatContacts().then(function (contacts) { privateContacts = contacts || []; renderPrivateContacts(); renderPrivateChat(); }, function () {});
     db.collection("privateChats").onSnapshot(function (snap) {
@@ -2758,6 +2943,7 @@ if (window.claude && window.claude.use) {
       store.people = m;
       var first = !loaded.people; loaded.people = true;
       rebuildExternal(first);
+      if (first && window.bootDone) window.bootDone();
       if (state.view === "team") renderTeam();
       if (state.view === "meet") { renderPick(); renderMeets(); }
     }, function () {});
@@ -2773,6 +2959,16 @@ if (window.claude && window.claude.use) {
       applySeats(first); syncIntruders(first);
       var sp = document.getElementById("seatpanel");
       if (openIdx !== null && (!sp || sp.hidden)) openSheet(openIdx, null);
+    }, function () {});
+    db.collection("pos").onSnapshot(function (snap) {
+      var m = {}, first = !posLoaded, now = Date.now();
+      snap.docs.forEach(function (x) {
+        var v = x.data(), seen = posSeen[x.id];
+        if (!v || typeof v.x !== "number" || typeof v.y !== "number" || typeof v.t !== "number" || typeof v.w !== "string") return;
+        m[x.id] = { x: v.x, y: v.y, t: v.t, w: v.w };
+        if (!seen || seen.t !== v.t) posSeen[x.id] = { t: v.t, at: first && now - v.t >= POS_LIVE_MS ? 0 : now };
+      });
+      posLoaded = true; store.pos = m;
     }, function () {});
     db.collection("jobs").onSnapshot(function (snap) {
       var m = {};
@@ -2803,6 +2999,7 @@ if (window.claude && window.claude.use) {
       store.tasks = m;
       var first = !loaded.tasks; loaded.tasks = true;
       syncIntruders(first); renderGrid(); if (openIdx !== null) renderTasks();
+      autoCompleteDue();
     }, function () {});
     db.collection("chat").orderBy("at", "desc").limit(100).onSnapshot(function (snap) {
       var m = {};

@@ -16,7 +16,9 @@ import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.MvcResult;
 
 /** 가입·로그인, 권한 검사, 문서 저장 및 SSE API의 통합 동작을 검증합니다. */
-@SpringBootTest(classes = HeroBoardApplication.class, properties = "spring.datasource.url=jdbc:h2:mem:testdb;DB_CLOSE_DELAY=-1")
+@SpringBootTest(classes = HeroBoardApplication.class, properties = {
+    "spring.datasource.url=jdbc:h2:mem:testdb;DB_CLOSE_DELAY=-1",
+    "app.admin.password=admin"})
 @AutoConfigureMockMvc
 class DocApiTest {
 
@@ -197,6 +199,32 @@ class DocApiTest {
             .andExpect(status().isOk()).andExpect(jsonPath("$", org.hamcrest.Matchers.hasSize(0)));
         mvc.perform(get("/api/docs").session(outsiderSession))
             .andExpect(status().isOk()).andExpect(jsonPath("$.privateChats").doesNotExist());
+    }
+
+    @Test
+    void 로그인_5회_실패하면_잠기고_성공하면_횟수가_초기화된다() throws Exception {
+        String username = uniqueUser("lock");
+        register(username);
+        String wrong = json.writeValueAsString(java.util.Map.of("username", username, "password", "wrong"));
+        for (int i = 0; i < 4; i++) {
+            mvc.perform(post("/api/login").contentType(MediaType.APPLICATION_JSON).content(wrong))
+                .andExpect(status().isUnauthorized());
+        }
+        login(username, "pass1234");
+        for (int i = 0; i < 5; i++) {
+            mvc.perform(post("/api/login").contentType(MediaType.APPLICATION_JSON).content(wrong))
+                .andExpect(status().isUnauthorized());
+        }
+        mvc.perform(post("/api/login").contentType(MediaType.APPLICATION_JSON).content(wrong))
+            .andExpect(status().isTooManyRequests());
+        mvc.perform(post("/api/login").contentType(MediaType.APPLICATION_JSON)
+                .content(json.writeValueAsString(java.util.Map.of("username", username, "password", "pass1234"))))
+            .andExpect(status().isTooManyRequests());
+    }
+
+    @Test
+    void H2_콘솔은_기본적으로_공개되지_않는다() throws Exception {
+        mvc.perform(get("/h2-console/")).andExpect(status().isForbidden());
     }
 
     @Test

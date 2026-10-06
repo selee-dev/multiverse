@@ -12,7 +12,7 @@ import org.springframework.stereotype.Service;
 public class AuthService {
 
     private static final Set<String> CHARACTER_COLLECTIONS = Set.of(
-        "nicks", "titles", "skills", "stats", "health", "tasks", "pres", "ot", "seats", "status", "jobs", "moves", "pos", "say");
+        "nicks", "titles", "skills", "stats", "health", "tasks", "pres", "ot", "seats", "status", "jobs", "moves", "say");
     private static final Set<String> SHARED_OPERATION_COLLECTIONS = Set.of("meetings", "snacks", "projects");
 
     private final AccountService accounts;

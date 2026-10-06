@@ -1,20 +1,24 @@
 /*
  * 서버(Spring) 저장소 어댑터
  *
- * 원래 app.js 는 Claude Artifact 런타임의 window.claude.use("db") / use("user") 로 공유 DB 를 썼습니다.
- * 이 파일이 같은 모양의 객체를 만들어서, app.js 를 거의 고치지 않고 Spring REST API 에 연결합니다.
+ * 원래 app 스크립트(js/app/*.js)는 Claude Artifact 런타임의 window.claude.use("db") / use("user") 로 공유 DB 를 썼습니다.
+ * 이 파일이 같은 모양의 객체를 만들어서, 그 스크립트를 거의 고치지 않고 Spring REST API 에 연결합니다.
  *
  *   use("user") -> { can(permission) }               GET  api/me
- *   use("db")   -> collection(name).onSnapshot(cb)    GET  api/docs  (SSE + polling fallback)
+ *   use("db")   -> collection(name).onSnapshot(cb)    GET  api/docs 로 처음 한 번 전체를 받고,
+ *                                                     이후에는 SSE 로 오는 변경분(doc/private)만 반영
+ *                                                     (seq 누락 시에만 전체 재조회, SSE 불가 시 폴링)
  *                  doc("컬렉션/id").set(data)         PUT  api/doc/{컬렉션}/{id}
  *                  doc("컬렉션/id").delete()          DELETE api/doc/{컬렉션}/{id}
+ *                  sendPos / onPos                   WebSocket ws/pos (위치 전용, DB 저장 없음)
  *
- * 서버에 연결되지 않으면(예: 파일로 직접 열기) null 을 돌려주어 app.js 가 localStorage 모드로 동작합니다.
+ * 서버에 연결되지 않으면(예: 파일로 직접 열기) null 을 돌려주어 js/app 이 localStorage 모드로 동작합니다.
  */
 (function () {
   "use strict";
   var API = "api", POLL_MS = 5000;
   var cache = {}, last = {}, listeners = [], ready = null, timer = null, me = null, eventSource = null;
+  var lastSeq = null, pulling = null, pullAgain = false;
 
   function req(method, url, body) {
     var opt = { method: method, headers: {}, credentials: "same-origin" };
@@ -41,7 +45,7 @@
     listeners.forEach(function (l) { if (l.col === col) { try { l.cb(snapshotOf(col, l.q)); } catch (e) { if (window.console) console.error(e); } } });
   }
 
-  function pull() {
+  function pullOnce() {
     return Promise.all([req("GET", API + "/docs"), req("GET", API + "/chats/private")]).then(function (result) {
       var all = result[0], privateMessages = result[1] || [], privateDocs = {};
       Object.keys(all).forEach(function (col) {
@@ -58,11 +62,59 @@
     });
   }
 
+  function finishPull() {
+    pulling = null;
+    if (pullAgain) { pullAgain = false; pull().catch(function () {}); }
+  }
+
+  /* 전체 재조회. 진행 중이면 합치고, 그 사이 새 요청이 있었으면 끝난 뒤 한 번 더 조회합니다. */
+  function pull() {
+    if (pulling) { pullAgain = true; return pulling; }
+    pulling = pullOnce().then(finishPull, function (e) { finishPull(); throw e; });
+    return pulling;
+  }
+
+  /* 문서 하나의 변경을 캐시에 반영합니다. 내용이 같으면 리스너를 호출하지 않습니다. */
+  function applyDoc(op, col, id, body) {
+    var m = cache[col] || (cache[col] = {});
+    if (op === "delete") {
+      if (!(id in m)) return;
+      delete m[id];
+    } else {
+      if (id in m && JSON.stringify(m[id]) === JSON.stringify(body)) return;
+      m[id] = body;
+    }
+    last[col] = JSON.stringify(m);
+    notify(col);
+  }
+
+  function applyPrivate(message) {
+    if (!message || !message.id) return;
+    var m = cache.privateChats || (cache.privateChats = {});
+    if (m[message.id]) return;
+    m[message.id] = message;
+    last.privateChats = JSON.stringify(m);
+    notify("privateChats");
+  }
+
+  /* seq 가 연속이면 true. 빠졌으면 전체 재조회를 걸고 false 를 돌려줍니다. */
+  function trackSeq(seq) {
+    var ok = lastSeq === null || seq === lastSeq + 1;
+    lastSeq = seq;
+    if (!ok) pull().catch(function () {});
+    return ok;
+  }
+
+  function parse(e) { try { return JSON.parse(e.data); } catch (x) { return null; } }
+
   function startPolling() {
     if (timer) return;
     timer = setInterval(function () { if (!document.hidden) pull().catch(function () {}); }, POLL_MS);
-    document.addEventListener("visibilitychange", function () { if (!document.hidden) pull().catch(function () {}); });
   }
+  function stopPolling() {
+    if (timer) { clearInterval(timer); timer = null; }
+  }
+  document.addEventListener("visibilitychange", function () { if (!document.hidden && timer) pull().catch(function () {}); });
 
   function startSse() {
     if (!window.EventSource) {
@@ -71,18 +123,37 @@
     }
     if (eventSource) return;
     eventSource = new EventSource(API + "/events");
-    eventSource.addEventListener("refresh", function () {
+    eventSource.addEventListener("connected", function (e) {
+      var d = parse(e);
+      lastSeq = d && typeof d.seq === "number" ? d.seq : null;
+      pull().catch(function () {});   // 연결(재연결) 사이에 놓친 변경을 한 번 맞춥니다
+      stopPolling();
+    });
+    eventSource.addEventListener("doc", function (e) {
+      var d = parse(e);
+      if (!d || typeof d.seq !== "number") return;
+      if (trackSeq(d.seq)) applyDoc(d.op, d.col, d.id, d.body);
+    });
+    eventSource.addEventListener("private", function (e) {
+      var d = parse(e);
+      if (!d || typeof d.seq !== "number") return;
+      if (trackSeq(d.seq)) applyPrivate(d.message);
+    });
+    eventSource.addEventListener("seq", function (e) {
+      var d = parse(e);
+      if (d && typeof d.seq === "number") trackSeq(d.seq);
+    });
+    eventSource.addEventListener("refresh", function (e) {
+      var d = parse(e);
+      if (d && typeof d.seq === "number") lastSeq = d.seq;
       pull().catch(function () {});
     });
-    eventSource.addEventListener("connected", function () {
-      pull().catch(function () {});
-    });
+    // 브라우저가 자동으로 재연결하므로 닫지 않습니다. 완전히 닫힌 경우에만 폴링으로 전환합니다.
     eventSource.onerror = function () {
-      if (eventSource) {
-        eventSource.close();
+      if (eventSource && eventSource.readyState === 2) {
         eventSource = null;
+        startPolling();
       }
-      startPolling();
     };
   }
 
@@ -99,8 +170,40 @@
     };
   }
 
+  /* ---- 위치 채널(WebSocket). 위치는 서버 메모리에만 있고 DB/SSE 를 거치지 않습니다. ---- */
+  var posSocket = null, posTimer = null, posDelay = 1000, posListeners = [];
+  function posUrl() {
+    var u = new URL("ws/pos", location.href);
+    u.protocol = u.protocol === "https:" ? "wss:" : "ws:";
+    return u.href;
+  }
+  function connectPos() {
+    if (posSocket || !window.WebSocket) return;
+    var ws;
+    try { ws = new WebSocket(posUrl()); } catch (e) { return; }
+    posSocket = ws;
+    ws.onopen = function () { posDelay = 1000; };
+    ws.onmessage = function (e) {
+      var d = parse(e);
+      if (!d) return;
+      posListeners.forEach(function (cb) { try { cb(d); } catch (x) { if (window.console) console.error(x); } });
+    };
+    ws.onclose = function () {
+      if (posSocket === ws) posSocket = null;
+      clearTimeout(posTimer);
+      posTimer = setTimeout(connectPos, posDelay);
+      posDelay = Math.min(posDelay * 2, 15000);
+    };
+    ws.onerror = function () { try { ws.close(); } catch (x) {} };
+  }
+
   var db = {
     collection: function (col) { return query(col, null); },
+    /* 위치 수신: cb({type:"snapshot", list:[{id,x,y,t,w,age}]}) 또는 cb({type:"pos", id,x,y,t,w,age}) */
+    onPos: function (cb) { posListeners.push(cb); connectPos(); },
+    sendPos: function (id, x, y, w) {
+      if (posSocket && posSocket.readyState === 1) posSocket.send(JSON.stringify({ id: id, x: x, y: y, w: w }));
+    },
     adminAccounts: function () { return req("GET", API + "/admin/accounts"); },
     createAdminCharacter: function (payload) {
       return req("POST", API + "/admin/characters", payload).then(function (character) {
@@ -115,7 +218,8 @@
     },
     sendPrivateMessage: function (recipients, text) {
       return req("POST", API + "/chats/private", { recipients: recipients, text: text }).then(function (message) {
-        return pull().then(function () { return message; });
+        applyPrivate(message);
+        return message;
       });
     },
     deleteCharacter: function (id) {
@@ -123,10 +227,14 @@
     },
     doc: function (path) {
       var p = path.split("/"), col = p[0], id = p[1], url = API + "/doc/" + encodeURIComponent(col) + "/" + encodeURIComponent(id);
-      function after() { return pull().catch(function () {}); }
+      // people 은 서버가 캐릭터 목록과 병합해 내려주므로 전체 재조회, 나머지는 로컬 캐시에 바로 반영합니다.
+      function done(op, data) {
+        if (col === "people") return pull().catch(function () {});
+        applyDoc(op, col, id, data);
+      }
       return {
-        set: function (data) { return req("PUT", url, data).then(after); },
-        delete: function () { return req("DELETE", url).then(after); }
+        set: function (data) { return req("PUT", url, data).then(function () { done("set", data); }); },
+        delete: function () { return req("DELETE", url).then(function () { done("delete"); }); }
       };
     }
   };

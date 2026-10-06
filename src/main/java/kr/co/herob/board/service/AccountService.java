@@ -10,6 +10,9 @@ import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
 import java.util.regex.Pattern;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.dao.DuplicateKeyException;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.jdbc.core.RowMapper;
@@ -27,6 +30,7 @@ import org.springframework.web.server.ResponseStatusException;
 @Service
 public class AccountService implements UserDetailsService {
 
+    private static final Logger log = LoggerFactory.getLogger(AccountService.class);
     private static final Pattern USERNAME = Pattern.compile("[a-z0-9_-]{3,30}");
     private static final Set<String> UNIVERSES = Set.of(
         "order", "member", "display", "broadcast", "curation", "fgen",
@@ -37,10 +41,17 @@ public class AccountService implements UserDetailsService {
     private final PasswordEncoder passwordEncoder;
     private final ObjectMapper json;
 
-    public AccountService(JdbcTemplate jdbc, PasswordEncoder passwordEncoder, ObjectMapper json) {
+    private final String adminUsername;
+    private final String adminPassword;
+
+    public AccountService(JdbcTemplate jdbc, PasswordEncoder passwordEncoder, ObjectMapper json,
+                          @Value("${app.admin.username:admin}") String adminUsername,
+                          @Value("${app.admin.password:}") String adminPassword) {
         this.jdbc = jdbc;
         this.passwordEncoder = passwordEncoder;
         this.json = json;
+        this.adminUsername = normalizeUsername(adminUsername);
+        this.adminPassword = adminPassword;
     }
 
     /** 저장된 계정 정보를 Spring Security의 사용자 형식으로 조회합니다. */
@@ -56,24 +67,34 @@ public class AccountService implements UserDetailsService {
         return users.get(0);
     }
 
-    /** 저장소에 관리자 계정이 없을 때 개발용 데모 계정을 추가합니다. */
-    public void ensureDemoAdmin() {
+    /** 관리자 비밀번호가 설정돼 있고 해당 계정이 없을 때만 관리자 계정을 추가합니다. */
+    public void ensureAdmin() {
         try {
             jdbc.execute("ALTER TABLE HERO_CHARACTER DROP CONSTRAINT IF EXISTS HERO_CHARACTER_OWNER_ID_KEY");
         } catch (org.springframework.dao.DataAccessException ignored) {
             // 새 스키마에는 이미 중복 소유자를 허용하므로 마이그레이션 실패를 시작 장애로 만들지 않습니다.
         }
-        Integer count = jdbc.queryForObject("SELECT COUNT(*) FROM HERO_ACCOUNT WHERE USERNAME = 'admin'", Integer.class);
+        if (adminPassword == null || adminPassword.isBlank()) {
+            log.warn("APP_ADMIN_PASSWORD가 설정되지 않아 관리자 계정을 생성하지 않습니다.");
+            return;
+        }
+        Integer count = jdbc.queryForObject("SELECT COUNT(*) FROM HERO_ACCOUNT WHERE USERNAME = ?",
+            Integer.class, adminUsername);
         if (count == null || count == 0) {
             jdbc.update("INSERT INTO HERO_ACCOUNT (USERNAME, PASSWORD_HASH, ROLE_NAME) VALUES (?, ?, ?)",
-                "admin", passwordEncoder.encode("admin"), "ADMIN");
+                adminUsername, passwordEncoder.encode(adminPassword), "ADMIN");
         }
+    }
+
+    /** 가입할 수 없는 관리자 아이디인지 확인합니다. 기존 "admin" 예약도 유지합니다. */
+    private boolean isReservedUsername(String username) {
+        return "admin".equals(username) || adminUsername.equals(username);
     }
 
     /** 입력값을 검증하고 일반 사용자 계정을 생성합니다. */
     public String register(String rawUsername, String password) {
         String username = normalizeUsername(rawUsername);
-        if (!USERNAME.matcher(username).matches() || "admin".equals(username)) {
+        if (!USERNAME.matcher(username).matches() || isReservedUsername(username)) {
             throw new IllegalArgumentException("아이디는 영문 소문자, 숫자, _, - 조합 3~30자로 입력해 주세요.");
         }
         if (password == null || password.isBlank()) {
@@ -91,7 +112,7 @@ public class AccountService implements UserDetailsService {
     /** 아이디 형식과 예약어, 저장된 계정을 확인해 가입 가능 여부를 반환합니다. */
     public boolean isUsernameAvailable(String rawUsername) {
         String username = normalizeUsername(rawUsername);
-        if (!USERNAME.matcher(username).matches() || "admin".equals(username)) return false;
+        if (!USERNAME.matcher(username).matches() || isReservedUsername(username)) return false;
         Integer count = jdbc.queryForObject("SELECT COUNT(*) FROM HERO_ACCOUNT WHERE USERNAME = ?", Integer.class, username);
         return count != null && count == 0;
     }

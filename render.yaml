@@ -1,6 +1,13 @@
 services:
   - type: web
-    name: multibus
+    name: metadesk
     runtime: docker
     plan: free
     healthCheckPath: /api/me
+    envVars:
+      - key: APP_ADMIN_PASSWORD
+        sync: false
+      - key: SPRING_H2_CONSOLE_ENABLED
+        value: "false"
+      - key: SESSION_COOKIE_SECURE
+        value: "true"

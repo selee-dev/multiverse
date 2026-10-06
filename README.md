@@ -26,7 +26,7 @@ HTML, CSS, JavaScript 정적 화면과 REST API를 하나의 서버에서 제공
 
 - **캐릭터와 명단:** 캐릭터 등록, 검색·정렬, 직급·직업·스킬·스탯·체력 관리
 - **테마 지도:** 사무실·광장·전장 테마, 차원·유니버스 필터, 캐릭터 이동과 상태 표시
-- **방향키 이동:** 내 캐릭터를 ↑↓←→ 키로 직접 움직입니다. 위치는 `pos` 컬렉션에 저장되어 모든 사용자에게 보이며, 다른 캐릭터는 각 계정 소유자가 움직일 때만 이동합니다. 지도 컨트롤의 **자동 이동**을 켜면 소유자가 조작하지 않는 캐릭터가 기존처럼 자동으로 움직입니다(기본 꺼짐, 브라우저별 저장).
+- **방향키 이동:** 내 캐릭터를 ↑↓←→ 키로 직접 움직입니다. 위치는 WebSocket(`/ws/pos`)으로 실시간 공유되며 서버 메모리에만 보관하고 DB에는 저장하지 않습니다(서버 재시작 시 초기화). 다른 캐릭터는 각 계정 소유자가 움직일 때만 이동합니다. 지도 컨트롤의 **자동 이동**을 켜면 소유자가 조작하지 않는 캐릭터가 기존처럼 자동으로 움직입니다(기본 꺼짐, 브라우저별 저장).
 - **광장 테마:** 홈앤쇼핑·W쇼핑·SK스토아·KT알파쇼핑·쇼핑엔T·커머스웨어 6개 건물과 분수·나무·벤치·가로등·조형물이 있는 광장입니다. 입구에 서서 Enter를 누르면 해당 사이트가 새 창으로 열립니다. 광장에는 회의·프로젝트 영역이 없습니다(해당 메뉴는 목록 관리용으로만 사용).
 - **업무 마감 기한:** 캐릭터 시트에서 업무를 추가할 때 마감 날짜를 선택할 수 있고, 기한(당일 23:59)이 지나면 자동으로 완료 처리됩니다. 완료 상태는 본인 또는 관리자 브라우저에서 저장됩니다.
 - **로딩 화면:** 첫 로딩 중에는 로그인 화면 대신 빈 배경에 로딩 바가 표시됩니다.
@@ -38,7 +38,7 @@ HTML, CSS, JavaScript 정적 화면과 REST API를 하나의 서버에서 제공
 - **소통:** 전체 공지와 참여자만 볼 수 있는 개인·그룹 채팅
 - **사장님 등장:** 모든 사용자가 상태를 켜고 끌 수 있으며, 변경 사항과 사이렌이 모든 사용자 화면에 공유됨
 - **테마별 안내와 관리자 편집:** 안내 문구는 사무실·광장·전장 테마에 맞춰 표시되며, 관리자는 사이트 안내 문구를 수정해 모든 사용자에게 공유할 수 있음
-- **실시간 반영:** SSE 변경 알림을 사용하고, 연결할 수 없으면 5초 간격으로 폴링
+- **실시간 반영:** 처음 한 번만 전체를 조회하고, 이후에는 SSE로 오는 변경분(문서 1건, 비공개 메시지)만 반영합니다. 위치는 WebSocket으로 분리했습니다. SSE를 쓸 수 없으면 5초 폴링으로 전환
 
 ## 기술 스택
 
@@ -63,10 +63,10 @@ HTML, CSS, JavaScript 정적 화면과 REST API를 하나의 서버에서 제공
 프로젝트 루트에서 실행합니다.
 
 ```bash
-mvn spring-boot:run
+mvn spring-boot:run -Dspring-boot.run.profiles=dev
 ```
 
-브라우저에서 <http://localhost:8080>을 엽니다. 로컬 기본 설정은 `./data/herodb`에 H2 파일 데이터베이스를 만듭니다.
+`dev` 프로필은 로컬 전용 관리자 `admin` / `admin`과 H2 콘솔을 켭니다. 브라우저에서 <http://localhost:8080>을 엽니다. 로컬 기본 설정은 `./data/herodb`에 H2 파일 데이터베이스를 만듭니다.
 
 테스트는 다음과 같이 실행합니다.
 
@@ -93,7 +93,16 @@ Maven Central에 연결할 수 없는 사내망에서는 Maven `settings.xml`에
 
 아이디는 영문 소문자·숫자·`_`·`-` 조합의 3~30자이며, 비밀번호는 비어 있지 않아야 합니다. 가입 폼에서 아이디는 소문자로 정규화됩니다.
 
-저장소에 `admin` 계정이 없으면 서버 시작 시 데모 관리자 `admin` / `admin`이 생성됩니다. **운영 환경에 배포하기 전에 반드시 이 기본 계정 정책을 변경하세요.** 기존 관리자 계정은 자동으로 초기화되거나 비밀번호가 변경되지 않습니다.
+관리자 계정은 `APP_ADMIN_PASSWORD` 환경변수가 설정돼 있고 해당 계정이 없을 때만 서버 시작 시 생성됩니다(아이디는 `APP_ADMIN_USERNAME`, 기본 `admin`). 비밀번호가 비어 있으면 관리자를 만들지 않고 경고 로그만 남깁니다. 로컬 개발에서는 `dev` 프로필(`admin` / `admin`, H2 콘솔 활성화)을 쓰세요. 이미 DB에 있는 관리자 계정의 비밀번호는 자동으로 바뀌지 않습니다.
+
+| 환경변수 | 기본값 | 설명 |
+| --- | --- | --- |
+| `APP_ADMIN_USERNAME` | `admin` | 관리자 아이디 |
+| `APP_ADMIN_PASSWORD` | (없음) | 관리자 비밀번호. 비면 관리자 미생성 |
+| `SPRING_H2_CONSOLE_ENABLED` | `false` | H2 콘솔 사용 여부 |
+| `SESSION_COOKIE_SECURE` | `false` | HTTPS 운영 시 `true` |
+
+로그인은 IP와 아이디 조합당 5회 연속 실패하면 10분간 잠기며(메모리 기반, 단일 인스턴스 기준) 이때 429를 반환합니다. 세션 쿠키는 `HttpOnly`, `SameSite=Lax`입니다.
 
 ## 화면 기능
 
@@ -147,14 +156,15 @@ Maven Central에 연결할 수 없는 사내망에서는 Maven `settings.xml`에
 | 다른 계정의 캐릭터·문서 관리 | 불가 | 가능 |
 | 사장님 등장 상태 변경 | 가능 | 가능 |
 
-일반 계정은 `nicks`, `titles`, `skills`, `stats`, `health`, `tasks`, `pres`, `ot`, `seats`, `status`, `jobs`, `moves`, `pos` 중 본인 캐릭터 ID에 해당하는 문서를 수정할 수 있습니다. `meetings`, `snacks`, `projects`는 로그인 사용자 모두 수정할 수 있습니다. 공용 설정 문서의 사장님 등장 상태는 별도 API를 통해 누구나 변경할 수 있습니다.
+일반 계정은 `nicks`, `titles`, `skills`, `stats`, `health`, `tasks`, `pres`, `ot`, `seats`, `status`, `jobs`, `moves`, `say` 중 본인 캐릭터 ID에 해당하는 문서를 수정할 수 있습니다. `meetings`, `snacks`, `projects`는 로그인 사용자 모두 수정할 수 있습니다. 공용 설정 문서의 사장님 등장 상태는 별도 API를 통해 누구나 변경할 수 있습니다.
 
 ## 저장 및 실시간 동기화
 
 - 계정과 캐릭터는 `HERO_ACCOUNT`, `HERO_CHARACTER` 테이블에 저장됩니다.
 - 화면의 캐릭터·업무·좌석·채팅 공지 등 일반 문서는 `HERO_DOC` 테이블에 컬렉션과 문서 ID를 키로 저장합니다. 본문은 JSON입니다.
 - 개인·그룹 채팅도 문서 저장소에 저장되지만, 서버는 참여 계정의 메시지만 별도 채팅 API로 반환합니다.
-- 문서 변경은 SSE의 `refresh` 이벤트로 화면에 알립니다. 브라우저 또는 프록시에서 SSE를 사용할 수 없으면 5초 폴링으로 전환합니다.
+- 문서 변경은 SSE `doc` 이벤트(`{seq, op, col, id, body}`)로 변경분만 알립니다. 비공개 메시지는 `private` 이벤트로 참여자에게만 내용이 가고, 다른 구독자는 내용 없는 `seq`만 받습니다. 모든 이벤트의 `seq`는 연속 증가하며, 클라이언트가 누락을 감지하면 `/api/docs`를 다시 조회합니다. `people`, 캐릭터 생성·삭제, 사장님 토글처럼 서버가 병합해 내려주는 변경은 `refresh` 이벤트로 전체 재조회를 요청합니다. SSE를 쓸 수 없으면 5초 폴링으로 전환합니다.
+- 위치는 WebSocket `/ws/pos`로만 주고받습니다. 클라이언트가 `{id, x, y, w}`를 보내면 서버가 소유권(본인 캐릭터 또는 관리자)·좌표 범위·전송 간격(100ms)을 검증해 다른 접속자에게 전달하고, 접속 직후에는 현재 위치 전체(`snapshot`)를 보냅니다. 로그인 세션 쿠키와 같은 출처 요청만 허용합니다.
 - 서버에 연결된 웹 화면에서 사용하는 데이터는 서버 DB에 저장되어 여러 사용자 화면에 공유됩니다. 브라우저에서 직접 정적 파일을 여는 방식은 로그인 및 서버 공유 기능을 대체하지 않습니다.
 
 ## API
@@ -182,12 +192,13 @@ Maven Central에 연결할 수 없는 사내망에서는 Maven `settings.xml`에
 | 메서드 | 경로 | 설명 |
 |---|---|---|
 | `GET` | `/api/docs` | 저장된 전체 공개 문서 조회 |
-| `GET` | `/api/events` | SSE 연결 (`connected`, `refresh` 이벤트) |
+| `GET` | `/api/events` | SSE 연결 (`connected`, `doc`, `private`, `seq`, `refresh` 이벤트) |
+| `WS` | `/ws/pos` | 위치 전용 WebSocket (`snapshot`, `pos` 메시지) |
 | `PUT` | `/api/doc/{collection}/{id}` | 권한 확인 후 JSON 문서 저장 |
 | `DELETE` | `/api/doc/{collection}/{id}` | 권한 확인 후 문서 삭제 |
 | `POST` | `/api/boss-visit` | `{ "enabled": true }`로 사장님 등장 상태 변경 |
 
-허용된 문서 컬렉션은 `people`, `nicks`, `titles`, `skills`, `stats`, `health`, `tasks`, `pres`, `ot`, `seats`, `meetings`, `projects`, `snacks`, `chat`, `cfg`, `jobs`, `moves`, `status`, `pos`입니다. 문서 ID는 영문·숫자·`_`·`-` 조합의 1~60자이고, 본문은 JSON 객체이며 직렬화 후 최대 100,000자입니다. 유효하지 않은 입력은 `400`, 권한이 없는 문서 작업은 `403`을 반환합니다.
+허용된 문서 컬렉션은 `people`, `nicks`, `titles`, `skills`, `stats`, `health`, `tasks`, `pres`, `ot`, `seats`, `meetings`, `projects`, `snacks`, `chat`, `cfg`, `jobs`, `moves`, `status`, `say`입니다. 문서 ID는 영문·숫자·`_`·`-` 조합의 1~60자이고, 본문은 JSON 객체이며 직렬화 후 최대 100,000자입니다. 유효하지 않은 입력은 `400`, 권한이 없는 문서 작업은 `403`을 반환합니다.
 
 ### 개인·그룹 채팅
 
@@ -252,16 +263,43 @@ Oracle은 현재 바로 사용할 수 있는 검증 완료 구성이 아닙니�
     │   │   ├── config/                 Spring Security 설정
     │   │   ├── controller/             인증·캐릭터·문서 API
     │   │   ├── mapper/                 MyBatis 인터페이스
-    │   │   └── service/                계정·권한·문서·채팅·SSE 처리
+    │   │   ├── service/                계정·권한·문서·채팅·SSE·위치 처리
+    │   │   └── websocket/              위치 채널(/ws/pos)
     │   └── resources/
     │       ├── mapper/                 MyBatis SQL
     │       ├── static/                 HTML, CSS, JavaScript 화면
+    │       │   └── js/
+    │       │       ├── auth.js         로그인·가입
+    │       │       ├── db-adapter.js   REST·SSE·WebSocket 어댑터
+    │       │       └── app/            화면 로직(기능별 파일, 아래 표 참고)
     │       ├── application.properties  서버·DB 설정
     │       └── schema.sql              H2/PostgreSQL 테이블 생성
     └── test/
         └── java/kr/co/herob/board/
-            └── DocApiTest.java          API 통합 테스트
+            ├── DocApiTest.java          API 통합 테스트
+            └── RealtimeTest.java        SSE 변경분·WebSocket 위치 테스트
 ```
+
+### 화면 스크립트(`static/js/app/`)
+
+`index.html`이 아래 순서대로 불러오는 **일반 스크립트**입니다. ES 모듈이 아니라 하나의 전역 스코프를 공유하므로 로드 순서가 곧 실행 순서이고, 파일 사이의 호출은 전역 함수 이름으로 이루어집니다. 파일을 추가하거나 순서를 바꿀 때는 최상위에서 바로 실행되는 코드가 뒤에 오는 파일의 함수를 부르지 않는지 확인하세요.
+
+| 파일 | 역할 |
+| --- | --- |
+| `core.js` | 공통 상태, 세계관 상수, 데이터·근태 계산, 문자열 도우미 |
+| `audio.js` | 배경 음악(BGM) |
+| `roster.js` | 캐릭터 시트, 편집기, 업무(task), 명단 그리드 |
+| `map.js` | 지도 그림(사무실·광장·전장), 스프라이트, 좌석과 걷기 경로 |
+| `world-sync.js` | 침입자와 회의 좌석 동기화 |
+| `movement.js` | 방향키 이동, 위치 공유, 걷기 갱신 |
+| `map-view.js` | 지도 그리기 루프와 클릭 판정 |
+| `meetings.js` / `projects.js` / `snacks.js` | 회의·프로젝트·간식 화면 |
+| `chat.js` | 공지, 개인·단체 대화 탭, 광장 채팅 패널(공통 부품 `chatMsgHtml`·`privateRooms`·`sendFlow`·`onEnterSend` 포함) |
+| `bubbles.js` | 광장 말풍선 계산과 그리기 |
+| `team.js` | 멤버 화면과 관리자 캐릭터 연결 |
+| `views.js` | 화면 전환(`setView`), 주기 작업 |
+| `settings.js` | 공용 설정, 사이트 문구, 사장님 방문, 테마 |
+| `sync.js` | 서버 연결과 컬렉션 구독(마지막에 로드) |
 
 ## 문제 해결
 

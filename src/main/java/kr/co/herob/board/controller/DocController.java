@@ -3,16 +3,19 @@ package kr.co.herob.board.controller;
 import com.fasterxml.jackson.databind.JsonNode;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
-import java.io.IOException;
 import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import kr.co.herob.board.service.AccountService;
 import kr.co.herob.board.service.AuthService;
 import kr.co.herob.board.service.DocEventService;
 import kr.co.herob.board.service.DocService;
 import kr.co.herob.board.service.HeroCharacter;
+import kr.co.herob.board.service.LoginAttemptService;
+import kr.co.herob.board.service.PositionService;
 import kr.co.herob.board.service.PrivateChatService;
+import org.springframework.web.server.ResponseStatusException;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
@@ -40,10 +43,15 @@ public class DocController {
     private final SecurityContextRepository contextRepository;
     private final DocEventService events;
     private final PrivateChatService privateChats;
+    private final LoginAttemptService loginAttempts;
+    private final PositionService positions;
 
     public DocController(DocService docs, AuthService auth, AccountService accounts,
                          AuthenticationManager authenticationManager, SecurityContextRepository contextRepository,
-                         DocEventService events, PrivateChatService privateChats) {
+                         DocEventService events, PrivateChatService privateChats,
+                         LoginAttemptService loginAttempts, PositionService positions) {
+        this.loginAttempts = loginAttempts;
+        this.positions = positions;
         this.docs = docs;
         this.auth = auth;
         this.accounts = accounts;
@@ -90,7 +98,19 @@ public class DocController {
         String username = payload.get("username");
         String password = payload.get("password");
         if (username == null || password == null) throw new IllegalArgumentException("아이디와 비밀번호를 입력해 주세요.");
-        return sessionInfo(authenticate(username, password, request, response));
+        String key = request.getRemoteAddr() + "|" + username.trim().toLowerCase(Locale.ROOT);
+        if (loginAttempts.isLocked(key)) {
+            throw new ResponseStatusException(HttpStatus.TOO_MANY_REQUESTS,
+                "로그인 시도가 너무 많습니다. 잠시 후 다시 시도해 주세요.");
+        }
+        try {
+            Authentication authenticated = authenticate(username, password, request, response);
+            loginAttempts.reset(key);
+            return sessionInfo(authenticated);
+        } catch (AuthenticationException e) {
+            loginAttempts.recordFailure(key);
+            throw e;
+        }
     }
 
     /** 등록된 캐릭터 목록을 반환합니다. */
@@ -133,7 +153,7 @@ public class DocController {
     @PostMapping("/chats/private")
     public ResponseEntity<ObjectNode> sendPrivateMessage(@RequestBody Map<String, Object> payload) {
         ObjectNode message = privateChats.send(auth.currentUser(), payload.get("recipients"), payload.get("text"));
-        events.emitRefresh();
+        events.emitPrivate(message);
         return ResponseEntity.status(HttpStatus.CREATED).body(message);
     }
 
@@ -155,6 +175,7 @@ public class DocController {
     @DeleteMapping("/characters/{id}")
     public ResponseEntity<Void> deleteCharacter(@PathVariable String id) {
         accounts.deleteCharacter(id, auth.currentUser(), auth.isAdmin());
+        positions.remove(id);
         events.emitRefresh();
         return ResponseEntity.noContent().build();
     }
@@ -168,16 +189,11 @@ public class DocController {
     /** 문서 변경 알림을 구독하는 SSE 연결을 열고 정리 작업을 등록합니다. */
     @GetMapping(value = "/events", produces = MediaType.TEXT_EVENT_STREAM_VALUE)
     public SseEmitter events() {
-        SseEmitter emitter = new SseEmitter(60_000L);
-        events.add(emitter);
+        SseEmitter emitter = new SseEmitter(30 * 60_000L);
         emitter.onCompletion(() -> events.remove(emitter));
         emitter.onTimeout(() -> events.remove(emitter));
         emitter.onError(e -> events.remove(emitter));
-        try {
-            emitter.send(SseEmitter.event().name("connected").data("ok"));
-        } catch (IOException ignored) {
-            events.remove(emitter);
-        }
+        events.add(auth.currentUser(), emitter);
         return emitter;
     }
 
@@ -186,7 +202,7 @@ public class DocController {
     public ResponseEntity<Void> put(@PathVariable String col, @PathVariable String id, @RequestBody JsonNode body) {
         if (!auth.canWriteDocument(col, id)) return ResponseEntity.status(HttpStatus.FORBIDDEN).build();
         docs.save(col, id, body);
-        events.emitRefresh();
+        emitDocChange("set", col, id, body);
         return ResponseEntity.noContent().build();
     }
 
@@ -205,8 +221,17 @@ public class DocController {
     public ResponseEntity<Void> delete(@PathVariable String col, @PathVariable String id) {
         if (!auth.canWriteDocument(col, id)) return ResponseEntity.status(HttpStatus.FORBIDDEN).build();
         docs.remove(col, id);
-        events.emitRefresh();
+        emitDocChange("delete", col, id, null);
         return ResponseEntity.noContent().build();
+    }
+
+    /**
+     * 문서 변경분만 구독자에게 보냅니다. people은 조회 시 캐릭터 목록과 병합되므로
+     * 저장된 본문이 그대로 화면 상태가 되지 않아 전체 새로고침으로 알립니다.
+     */
+    private void emitDocChange(String op, String col, String id, JsonNode body) {
+        if ("people".equals(col)) events.emitRefresh();
+        else events.emitDoc(op, col, id, body);
     }
 
     @ExceptionHandler(IllegalArgumentException.class)

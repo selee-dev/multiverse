@@ -1,6 +1,7 @@
 package kr.co.herob.board.config;
 
 import kr.co.herob.board.service.AccountService;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.ApplicationRunner;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -23,18 +24,26 @@ public class SecurityConfig {
 
     /** 공개 경로와 로그인 세션이 필요한 경로를 구분하는 보안 필터 체인을 만듭니다. */
     @Bean
-    public SecurityFilterChain securityFilterChain(HttpSecurity http, SecurityContextRepository contextRepository) throws Exception {
+    public SecurityFilterChain securityFilterChain(HttpSecurity http, SecurityContextRepository contextRepository,
+                                                   @Value("${spring.h2.console.enabled:false}") boolean h2Console) throws Exception {
         http
+            // JSON API와 세션 쿠키(SameSite=Lax) 조합이라 CSRF 토큰은 쓰지 않습니다.
             .csrf(AbstractHttpConfigurer::disable)
             .securityContext(context -> context.securityContextRepository(contextRepository))
-            .authorizeHttpRequests(auth -> auth
-                .requestMatchers("/", "/index.html", "/css/**", "/js/**", "/h2-console/**").permitAll()
+            .authorizeHttpRequests(auth -> {
+                // H2 콘솔은 명시적으로 켠 개발 환경에서만 공개합니다.
+                if (h2Console) auth.requestMatchers("/h2-console/**").permitAll();
+                auth
+                .requestMatchers("/", "/index.html", "/css/**", "/js/**").permitAll()
                 .requestMatchers(HttpMethod.POST, "/api/register", "/api/login").permitAll()
                 .requestMatchers(HttpMethod.GET, "/api/register/username-available").permitAll()
                 .requestMatchers(HttpMethod.GET, "/api/me").permitAll()
                 .requestMatchers("/api/**").authenticated()
-                .anyRequest().authenticated())
-            .headers(headers -> headers.frameOptions(frame -> frame.sameOrigin()))
+                .anyRequest().authenticated();
+            })
+            .headers(headers -> headers.frameOptions(frame -> {
+                if (h2Console) frame.sameOrigin(); else frame.deny();
+            }))
             .httpBasic(AbstractHttpConfigurer::disable)
             .formLogin(AbstractHttpConfigurer::disable)
             .logout(logout -> logout
@@ -62,9 +71,9 @@ public class SecurityConfig {
         return configuration.getAuthenticationManager();
     }
 
-    /** 개발 환경에서 기본 관리자 계정이 없을 때만 데모 계정을 생성합니다. */
+    /** 관리자 비밀번호 환경변수가 설정돼 있을 때만 관리자 계정을 준비합니다. */
     @Bean
-    public ApplicationRunner seedDemoAdmin(AccountService accounts) {
-        return args -> accounts.ensureDemoAdmin();
+    public ApplicationRunner seedAdmin(AccountService accounts) {
+        return args -> accounts.ensureAdmin();
     }
 }

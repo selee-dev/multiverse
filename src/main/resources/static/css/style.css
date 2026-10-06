@@ -567,3 +567,19 @@ html:not(.booting) .boot-loader { display: none; }
 .tdue { flex: none; margin-left: auto; padding: 1px 7px; border: 1px solid var(--line); border-radius: 999px; font-size: 11px; color: var(--muted); white-space: nowrap; }
 .ti.done .tdue { opacity: .6; text-decoration: none; }
 .jrow .tdue-in { flex: 0 1 140px; }
+
+/* 광장: 지도 오른쪽에 채팅 패널 */
+.plaza-chat { display: none; }
+html[data-world-theme="plaza"] .world { display: grid; grid-template-columns: minmax(0, 1fr) 290px; gap: 14px; align-items: stretch; }
+html[data-world-theme="plaza"] .world .wcontrols { grid-column: 1 / -1; }
+html[data-world-theme="plaza"] .plaza-chat { display: flex; flex-direction: column; gap: 8px; min-height: 0; border: 1px solid var(--line); border-radius: 12px; padding: 12px; background: var(--map-bg); }
+.plaza-chat h3 { margin: 0; font-size: 14px; }
+.plaza-chat .clist { height: auto; flex: 1; min-height: 160px; max-height: 420px; margin-bottom: 0; }
+.plaza-chat .mlabel { margin: 2px 0 0; }
+.plaza-to { margin-bottom: 0; max-height: 96px; overflow-y: auto; }
+.plaza-to button[aria-pressed="true"] { border-color: var(--gold); color: var(--gold); }
+.plaza-chat input { min-width: 0; width: 100%; }
+.plaza-chat .jrow { flex-wrap: nowrap; }
+.plaza-priv .cbody { border-left: 3px solid #7a55c9; }
+html[data-world-theme="plaza"] #chat-modes { display: none; }
+@media (max-width: 900px) { html[data-world-theme="plaza"] .world { grid-template-columns: minmax(0, 1fr); } }

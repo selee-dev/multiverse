@@ -92,6 +92,14 @@
         <div class="tip" id="tip" hidden></div>
       </div>
     </div>
+    <aside class="plaza-chat" id="plaza-chat" aria-label="광장 채팅">
+      <h3>광장 채팅</h3>
+      <div class="clist" id="plaza-log" role="log" aria-live="polite"></div>
+      <div class="mlabel">받는 사람</div>
+      <div class="recs plaza-to" id="plaza-to" role="group" aria-label="받는 사람"></div>
+      <div class="jrow"><input id="plaza-input" type="text" maxlength="100" placeholder="말풍선 메시지 (Enter)" aria-label="채팅 메시지" autocomplete="off"><button type="button" id="plaza-send" class="jsave">보내기</button></div>
+      <div class="jstatus" id="plaza-status" role="status"></div>
+    </aside>
     <div class="wcontrols">
       <label><input type="checkbox" id="names" checked> 이름 표시</label>
       <label><input type="checkbox" id="autolunch" checked> 점심시간 자동</label>

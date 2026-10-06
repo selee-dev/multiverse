@@ -90,7 +90,7 @@ try { var rawSt = localStorage.getItem("ops-status"); if (rawSt) leaves = JSON.p
 
 var INVCAP = 14;
 var PSLOTS = ["p1", "p2", "p3"];
-var store = { tasks: {}, meetings: {}, projects: {}, titles: {}, snacks: {}, stats: {}, health: {}, chat: {}, privateChats: {}, pres: {}, skills: {}, nicks: {}, cfg: {}, ot: {}, seats: {}, people: {}, pos: {} };
+var store = { tasks: {}, meetings: {}, projects: {}, titles: {}, snacks: {}, stats: {}, health: {}, chat: {}, privateChats: {}, say: {}, pres: {}, skills: {}, nicks: {}, cfg: {}, ot: {}, seats: {}, people: {}, pos: {} };
 var intr = [], invCount = {};
 Object.keys(store).forEach(function (c) { try { var raw = localStorage.getItem("ops-" + c); if (raw) { var o = JSON.parse(raw); store[c] = o && typeof o === "object" && !Array.isArray(o) ? o : {}; } } catch (e) { store[c] = {}; } });
 function makeExt(m, k) {
@@ -1982,6 +1982,7 @@ function draw() {
     if (sit && on && d) drawHealthBattery(s.x, s.y, d, 32);
     if (sit && on && hover === w) arrow(s.cx, s.y - 20);
   });
+  var bubbles = WORLD_THEME === "plaza" ? activeBubbles() : {};
   walkers.slice().sort(function (a, b) { return a.y - b.y; }).forEach(function (w) {
     if (isSitting(w) || isUsingPc(w)) return;
     var d = DATA[w.i], on = mapOn(d), off = onLeave(d, today), gn = w.mode === "gone";
@@ -2006,6 +2007,7 @@ function draw() {
     }
     if (on && hover === w) arrow(x + CW / 2, y - (presenceText ? name.length * 13 + 25 : 20));
     if (on && isOT(d) && !off) otBadge(x + CW - 2, y - 2);
+    if (on && WORLD_THEME === "plaza" && bubbles[w.id]) { mctx.globalAlpha = 1; drawBubble(bubbles[w.id], x + CW / 2, y - (showWalkerName ? name.length * 13 + 8 : 6) - (presenceText ? 20 : 0)); }
   });
   var meW = ownWalker();
   if (meW && nearShop) {
@@ -2585,6 +2587,101 @@ function sendPrivateChat() {
     input.value = ""; activePrivateRoom = message.room; status.textContent = ""; renderPrivateChat(); input.focus();
   }, function () { status.textContent = "메시지를 보내지 못했습니다. 대화 상대와 연결을 확인해 주세요."; });
 }
+/* ---- 광장 말풍선과 오른쪽 채팅 패널 ---- */
+var BUBBLE_MS = 8000;
+function characterIdOfUser(username) {
+  if (username === currentUser) return currentCharacterId;
+  var c = privateContacts.filter(function (item) { return item.username === username; })[0];
+  return c ? c.characterId : null;
+}
+function characterName(id) {
+  var d = DATA.filter(function (item) { return jobId(item) === id; })[0];
+  return d ? d.n : id;
+}
+/** 지금 말풍선으로 보여줄 캐릭터별 메시지. 개인 메시지는 서버가 참여자에게만 내려주므로 상대에게만 보입니다. */
+function activeBubbles() {
+  var now = Date.now(), out = {};
+  Object.keys(store.say).forEach(function (id) { var s = store.say[id]; if (now - s.at < BUBBLE_MS) out[id] = { t: s.t, at: s.at, priv: false }; });
+  Object.keys(store.privateChats).forEach(function (key) {
+    var m = store.privateChats[key], id = m && now - (+m.at || 0) < BUBBLE_MS ? characterIdOfUser(m.sender) : null;
+    if (id && (!out[id] || out[id].at < m.at)) out[id] = { t: String(m.text).slice(0, 100), at: +m.at, priv: true };
+  });
+  return out;
+}
+function wrapText(c, text, maxW, maxLines) {
+  var lines = [], line = "", i, ch;
+  for (i = 0; i < text.length; i++) {
+    ch = text.charAt(i);
+    if (c.measureText(line + ch).width > maxW && line) { lines.push(line); line = ""; if (lines.length === maxLines) break; }
+    line += ch;
+  }
+  if (lines.length < maxLines && line) lines.push(line);
+  else if (i < text.length) lines[lines.length - 1] = lines[lines.length - 1].slice(0, -1) + "…";
+  return lines;
+}
+function drawBubble(b, cx, bottom) {
+  var lines, w = 0, h, x, y, k;
+  mctx.save();
+  mctx.font = "500 12px 'Apple SD Gothic Neo','Malgun Gothic','Noto Sans KR',sans-serif";
+  lines = wrapText(mctx, b.t, 130, 3);
+  lines.forEach(function (l) { w = Math.max(w, mctx.measureText(l).width); });
+  w += 14; h = lines.length * 15 + 8; x = Math.round(cx - w / 2); y = Math.round(bottom - h - 6);
+  mctx.globalAlpha = Math.min(1, (BUBBLE_MS - (Date.now() - b.at)) / 800);
+  mctx.fillStyle = b.priv ? "#efe4ff" : "#fff"; mctx.strokeStyle = b.priv ? "#7a55c9" : "#444"; mctx.lineWidth = 1.5;
+  mctx.beginPath();
+  if (mctx.roundRect) mctx.roundRect(x, y, w, h, 7); else mctx.rect(x, y, w, h);
+  mctx.fill(); mctx.stroke();
+  mctx.beginPath(); mctx.moveTo(cx - 5, y + h); mctx.lineTo(cx, y + h + 6); mctx.lineTo(cx + 5, y + h); mctx.closePath(); mctx.fill(); mctx.stroke();
+  mctx.fillStyle = b.priv ? "#fff" : "#fff"; mctx.fillRect(cx - 4, y + h - 2, 8, 3);
+  mctx.fillStyle = "#222"; mctx.textAlign = "center";
+  for (k = 0; k < lines.length; k++) mctx.fillText(lines[k], cx, y + 17 + k * 15);
+  mctx.restore();
+}
+var plazaTo = "";
+function renderPlazaRecipients() {
+  var box = document.getElementById("plaza-to");
+  if (!box) return;
+  if (plazaTo && !privateContacts.some(function (c) { return c.username === plazaTo; })) plazaTo = "";
+  box.innerHTML = '<button type="button" data-to="" aria-pressed="' + !plazaTo + '">전체</button>' + privateContacts.map(function (c) {
+    return '<button type="button" data-to="' + esc(c.username) + '" aria-pressed="' + (c.username === plazaTo) + '" title="' + esc(c.username) + '">🔒 ' + esc(c.name) + "</button>";
+  }).join("");
+  document.getElementById("plaza-input").placeholder = plazaTo ? "귓속말 (Enter) · 상대에게만 보여요" : "말풍선 메시지 (Enter) · 모두에게 보여요";
+}
+document.getElementById("plaza-to").addEventListener("click", function (event) {
+  var b = event.target.closest("[data-to]");
+  if (!b) return;
+  plazaTo = b.dataset.to; renderPlazaRecipients(); document.getElementById("plaza-input").focus();
+});
+function renderPlazaLog() {
+  var el = document.getElementById("plaza-log"), items = [], h;
+  if (!el) return;
+  Object.keys(store.say).forEach(function (id) { var s = store.say[id]; items.push({ at: s.at, who: characterName(id), t: s.t, priv: false }); });
+  privateMessageList().forEach(function (m) {
+    var mine = m.sender === currentUser;
+    items.push({ at: +m.at || 0, who: mine ? "나 → " + m.participants.filter(function (u) { return u !== currentUser; }).map(contactName).join(", ") : contactName(m.sender), t: m.text, priv: true });
+  });
+  items.sort(function (a, b) { return a.at - b.at; });
+  h = items.slice(-30).map(function (i) { return '<div class="cmsg' + (i.priv ? " plaza-priv" : "") + '"><div class="cbody"><b>' + (i.priv ? "🔒 " : "") + esc(i.who) + "</b><time>" + fmtT(i.at) + "</time><p>" + esc(i.t) + "</p></div></div>"; }).join("");
+  el.innerHTML = h || '<p class="tempty">아직 대화가 없어요.</p>';
+  el.scrollTop = el.scrollHeight;
+}
+function sendPlazaChat() {
+  var input = document.getElementById("plaza-input"), status = document.getElementById("plaza-status"), to = plazaTo, text = input.value.trim();
+  if (!text) return;
+  if (!dbRef) { status.textContent = "서버에 연결되지 않았어요."; return; }
+  if (to) {
+    dbRef.sendPrivateMessage([to], text.slice(0, 500)).then(function () { input.value = ""; status.textContent = ""; renderPlazaLog(); input.focus(); },
+      function () { status.textContent = "메시지를 보내지 못했습니다. 대화 상대를 확인해 주세요."; });
+  } else {
+    if (!currentCharacterId) { status.textContent = "내 캐릭터가 있어야 말풍선을 띄울 수 있어요."; return; }
+    var doc = { t: text.slice(0, 100), at: Date.now() };
+    store.say[currentCharacterId] = doc;
+    dbRef.doc("say/" + currentCharacterId).set(doc).then(function () { input.value = ""; status.textContent = ""; renderPlazaLog(); input.focus(); },
+      function () { status.textContent = "메시지를 보내지 못했습니다."; });
+  }
+}
+document.getElementById("plaza-send").addEventListener("click", sendPlazaChat);
+document.getElementById("plaza-input").addEventListener("keydown", function (event) { if (event.key === "Enter" && !event.isComposing) { event.preventDefault(); sendPlazaChat(); } });
 document.getElementById("chat-modes").addEventListener("click", function (event) {
   var button = event.target.closest("[data-chat-mode]");
   if (!button) return;
@@ -2950,13 +3047,20 @@ if (window.claude && window.claude.use) {
   window.claude.use("db").then(function (db) {
     if (!db) { if (window.bootDone) window.bootDone(); return; }
     dbRef = db;
-    db.privateChatContacts().then(function (contacts) { privateContacts = contacts || []; renderPrivateContacts(); renderPrivateChat(); }, function () {});
+    db.privateChatContacts().then(function (contacts) { privateContacts = contacts || []; renderPrivateContacts(); renderPrivateChat(); renderPlazaRecipients(); renderPlazaLog(); }, function () {});
     db.collection("privateChats").onSnapshot(function (snap) {
       var m = {};
       snap.docs.forEach(function (doc) { var value = doc.data(); if (value && Array.isArray(value.participants)) m[doc.id] = value; });
       store.privateChats = m;
       if (state.view === "chat" && chatMode === "private") renderPrivateChat();
       else updatePrivateBadge();
+      renderPlazaLog();
+    }, function () {});
+    db.collection("say").onSnapshot(function (snap) {
+      var m = {};
+      snap.docs.forEach(function (doc) { var v = doc.data(); if (v && typeof v.t === "string" && typeof v.at === "number") m[doc.id] = { t: v.t.slice(0, 100), at: v.at }; });
+      store.say = m;
+      renderPlazaLog();
     }, function () {});
     var loaded = { tasks: false, meetings: false, projects: false, chat: false, seats: false, people: false };
     db.collection("people").onSnapshot(function (snap) {

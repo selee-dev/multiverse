@@ -150,9 +150,9 @@ function isGone(d, now) { return nowMin(now) >= hmMin(cfg().oe) && !isOT(d); }
 function shouldSitAtDesk(d, now) {
   now = now || Date.now();
   if (WORLD_THEME !== "office") return false;
-  if (WORLD_THEME === "office" && bossVisitOn()) return !onLeave(d) && !isGone(d, now) && !presenceOf(d, now) && !inActiveMeeting(d);
+  if (WORLD_THEME === "office" && bossVisitOn()) return !onLeave(d) && !isGone(d, now) && (!presenceOf(d, now) || presenceOf(d, now) === "lunch") && !inActiveMeeting(d);
   var minute = nowMin(now), end = hmMin(cfg().oe);
-  var working = !presenceOf(d, now);
+  var working = !presenceOf(d, now) || presenceOf(d, now) === "lunch";
   return !!(working && minute >= 540 && (minute < end || isOT(d)));
 }
 function levelOf(d) { return Math.max(1, Math.min(99, Math.round(power(d) / 13))); }
@@ -1504,7 +1504,7 @@ function newWalker(d, i) {
 var walkers = DATA.map(function (d, i) { return newWalker(d, i); });
 function homeDest(w) { return w.hd && shouldSitAtDesk(DATA[w.i]) ? [w.hd.x, w.hd.y] : w.a ? (WORLD_THEME === "plaza" ? plazaSpot() : randIn(w.a)) : (STAND[DATA[w.i].n] || [w.x, w.y]); }
 function leaveSpot(w) { return w.hd ? [w.hd.cx - CW / 2, w.hd.ry + 66] : (STAND[DATA[w.i].n] || [w.x, w.y]); }
-function isSitting(w) { return !w.route.length && !w.seat && w.mode === "desk" && w.hd && shouldSitAtDesk(DATA[w.i]) && Math.abs(w.x - w.hd.x) < 1.5 && Math.abs(w.y - w.hd.y) < 1.5; }
+function isSitting(w) { return !w.route.length && !w.seat && (w.mode === "desk" || (w.mode === "away" && w.tag === "lunch" && WORLD_THEME !== "battlefield")) && w.hd && shouldSitAtDesk(DATA[w.i]) && Math.abs(w.x - w.hd.x) < 1.5 && Math.abs(w.y - w.hd.y) < 1.5; }
 function isUsingPc(w) { return w.mode === "pc" && !!w.pc && !w.route.length; }
 function rowOfY(y) { return Math.max(0, Math.min(GRID - 1, Math.floor((y - OY) / ROWH))); }
 function wtop(r) { return OY + r * ROWH + 66; }
@@ -1624,6 +1624,7 @@ function syncMeetings(initial) {
     else if (mode === "leave") { sp = leaveSpot(w); w.route = []; w.moving = false; w.x = sp[0]; w.y = sp[1]; w.tx = w.x; w.ty = w.y; }
     else if (mode === "meet") { if (quick) jump(w, [s.x, s.y]); else goTo(w, [s.x, s.y]); }
     else if (mode === "pc") { t2 = [pc.x, pc.y]; if (quick) jump(w, t2); else goTo(w, t2); }
+    else if (mode === "away" && tag === "lunch" && WORLD_THEME !== "battlefield") { w.route = []; w.moving = false; }
     else if (mode === "away") { t2 = tag === "lunch" && WORLD_THEME === "battlefield" ? lunchSpot(lunchers.indexOf(w.id), lunchers.length) : awayDest(); if (quick) jump(w, t2); else goTo(w, t2); }
     else { h = homeDest(w); if (quick) jump(w, h); else goTo(w, h); }
   });
@@ -1866,7 +1867,7 @@ function drawBossVisitor() {
   mctx.globalAlpha = 1;
   mctx.fillStyle = "#0008";
   mctx.beginPath(); mctx.ellipse(50, 158, 38, 7, 0, 0, Math.PI * 2); mctx.fill();
-  if (WORLD_THEME === "office") {
+  if (WORLD_THEME !== "battlefield") {
     var jacket = mctx.createLinearGradient(22, 48, 78, 126);
     jacket.addColorStop(0, "#344858"); jacket.addColorStop(0.52, "#202e3b"); jacket.addColorStop(1, "#17232f");
     mctx.fillStyle = "#20232a"; mctx.fillRect(31, 116 + step, 15, 31); mctx.fillRect(54, 116 - step, 15, 31);
@@ -1961,6 +1962,7 @@ function draw() {
       mctx.fillStyle = "#fff"; mctx.fillText(t, s.cx - 36, s.ry + 61);
     }
     if (sit && on && d && isOT(d)) otBadge(s.cx + 18, s.ry + 2);
+    if (sit && on && w && w.mode === "away" && w.tag === "lunch") mctx.drawImage(foodIcon("밥"), s.x + CW - 8, s.y + 8 + Math.round(Math.sin(lastT / 260 + w.i) * 3));
     if (!d && s.kind !== "person") label(s.n, s.cx, s.ry + 9, true);
     else if (d && on && (showNames || hover === w || w.mode === "pc")) label(nameLines(d, off ? " · " + offLabel(d) : ""), s.cx, s.y - 4, off);
     if (sit && on && d) drawHealthBattery(s.x, s.y, d, 32);
@@ -1976,7 +1978,7 @@ function draw() {
     else mctx.drawImage(spr[w.i][off ? 1 : 0][fr], x, y);
     if (on) drawHealthBattery(x, y, d);
     if (w.mode === "away" && w.tag === "lunch") {
-      if (WORLD_THEME !== "battlefield") mctx.drawImage(foodIcon("밥"), x + 6, y - 22);
+      if (WORLD_THEME !== "battlefield") mctx.drawImage(foodIcon("밥"), x + CW - 8, y + 8 + Math.round(Math.sin(lastT / 260 + w.i) * 3));
       else if (!w.route.length) drumstick(x + CW - 5, y + 12 + (Math.sin(lastT / 170 + w.i * 1.7) > 0.3 ? -3 : 0));
       else drumstick(x + 8, y - 26);
     } else if (w.mode === "away" && w.tag === "break") mctx.drawImage(foodIcon("커피"), x + 4, y - 32);

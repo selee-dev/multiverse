@@ -1982,7 +1982,12 @@ function draw() {
     if (sit && on && d) drawHealthBattery(s.x, s.y, d, 32);
     if (sit && on && hover === w) arrow(s.cx, s.y - 20);
   });
-  var bubbles = WORLD_THEME === "plaza" ? activeBubbles() : {};
+  var bubbles = activeBubbles();
+  walkers.forEach(function (w) {
+    var seat = isUsingPc(w) ? w.pc : isSitting(w) ? w.hd : null;
+    if (!seat || !bubbles[w.id] || !mapOn(DATA[w.i])) return;
+    mctx.globalAlpha = 1; drawBubble(bubbles[w.id], seat.cx, seat.y - nameLines(DATA[w.i], "").length * 13 - 8);
+  });
   walkers.slice().sort(function (a, b) { return a.y - b.y; }).forEach(function (w) {
     if (isSitting(w) || isUsingPc(w)) return;
     var d = DATA[w.i], on = mapOn(d), off = onLeave(d, today), gn = w.mode === "gone";
@@ -2007,7 +2012,7 @@ function draw() {
     }
     if (on && hover === w) arrow(x + CW / 2, y - (presenceText ? name.length * 13 + 25 : 20));
     if (on && isOT(d) && !off) otBadge(x + CW - 2, y - 2);
-    if (on && WORLD_THEME === "plaza" && bubbles[w.id]) { mctx.globalAlpha = 1; drawBubble(bubbles[w.id], x + CW / 2, y - (showWalkerName ? name.length * 13 + 8 : 6) - (presenceText ? 20 : 0)); }
+    if (on && bubbles[w.id]) { mctx.globalAlpha = 1; drawBubble(bubbles[w.id], x + CW / 2, y - (showWalkerName ? name.length * 13 + 8 : 6) - (presenceText ? 20 : 0)); }
   });
   var meW = ownWalker();
   if (meW && nearShop) {
@@ -2612,6 +2617,7 @@ function wrapText(c, text, maxW, maxLines) {
   var lines = [], line = "", i, ch;
   for (i = 0; i < text.length; i++) {
     ch = text.charAt(i);
+    if (ch === "\n") { lines.push(line); line = ""; if (lines.length === maxLines) { i++; break; } continue; }
     if (c.measureText(line + ch).width > maxW && line) { lines.push(line); line = ""; if (lines.length === maxLines) break; }
     line += ch;
   }
@@ -2637,51 +2643,123 @@ function drawBubble(b, cx, bottom) {
   for (k = 0; k < lines.length; k++) mctx.fillText(lines[k], cx, y + 17 + k * 15);
   mctx.restore();
 }
-var plazaTo = "";
+var plazaQuery = "", plazaTo = "", plazaSeen = {}, plazaSending = false, plazaStart = Date.now();
+/** 대화방 키: 나를 뺀 참여자 계정을 정렬해 "|"로 이은 문자열. 빈 문자열은 공개(전체) 방입니다. */
+function roomKeyOf(message) {
+  return message.participants.filter(function (u) { return u !== currentUser; }).sort().join("|");
+}
+function plazaRoomLast(key) {
+  var last = 0;
+  privateMessageList().forEach(function (m) {
+    if (m.sender !== currentUser && roomKeyOf(m) === key && (+m.at || 0) > last) last = +m.at;
+  });
+  return last;
+}
+function plazaRoomName(key) {
+  return key.split("|").map(function (u) {
+    var c = privateContacts.filter(function (item) { return item.username === u; })[0];
+    return c ? c.name : u;
+  }).join(", ");
+}
 function renderPlazaRecipients() {
-  var box = document.getElementById("plaza-to");
+  var box = document.getElementById("plaza-to"), input = document.getElementById("plaza-input"), keys = {}, h;
   if (!box) return;
-  if (plazaTo && !privateContacts.some(function (c) { return c.username === plazaTo; })) plazaTo = "";
-  box.innerHTML = '<button type="button" data-to="" aria-pressed="' + !plazaTo + '">전체</button>' + privateContacts.map(function (c) {
-    return '<button type="button" data-to="' + esc(c.username) + '" aria-pressed="' + (c.username === plazaTo) + '" title="' + esc(c.username) + '">🔒 ' + esc(c.name) + "</button>";
-  }).join("");
-  document.getElementById("plaza-input").placeholder = plazaTo ? "귓속말 (Enter) · 상대에게만 보여요" : "말풍선 메시지 (Enter) · 모두에게 보여요";
+  privateContacts.forEach(function (c) { keys[c.username] = true; });
+  privateMessageList().forEach(function (m) { var k = roomKeyOf(m); if (k) keys[k] = true; });
+  if (plazaTo) keys[plazaTo] = true;
+  h = '<button type="button" data-to="" aria-pressed="' + !plazaTo + '">전체</button>' + Object.keys(keys).sort().filter(function (k) { var q = plazaQuery; return !q || k === plazaTo || (plazaRoomName(k) + " " + k).toLowerCase().indexOf(q) >= 0; }).map(function (k) {
+    var unread = k !== plazaTo && plazaRoomLast(k) > (plazaSeen[k] || plazaStart), group = k.indexOf("|") >= 0;
+    return '<button type="button" data-to="' + esc(k) + '" class="' + (unread ? "unread" : "") + '" aria-pressed="' + (k === plazaTo) + '" title="' + esc(k.split("|").join(", ")) + '">' + (group ? "👥 " : "🔒 ") + esc(plazaRoomName(k)) + "</button>";
+  }).join("") + '<button type="button" data-act="group" class="plaza-newgroup">＋ 단체방</button>';
+  box.innerHTML = h;
+  input.placeholder = (!plazaTo ? "말풍선 · 모두에게 보여요" : plazaTo.indexOf("|") >= 0 ? "단체방 · 참여자에게만 보여요" : "귓속말 · 상대에게만 보여요") + " (Enter 전송 · Shift+Enter 줄바꿈)";
+  input.maxLength = plazaTo ? 500 : 100;
+}
+function renderPlazaGroupPicker() {
+  document.getElementById("plaza-group-search").value = "";
+  document.getElementById("plaza-group-list").innerHTML = privateContacts.map(function (c) {
+    return '<label class="private-contact"><input type="checkbox" value="' + esc(c.username) + '"><span>' + esc(c.name) + " · " + esc(c.username) + "</span></label>";
+  }).join("") || '<p class="private-contact-empty">대화할 사용자가 없습니다.</p>';
 }
 document.getElementById("plaza-to").addEventListener("click", function (event) {
-  var b = event.target.closest("[data-to]");
+  var b = event.target.closest("button"), picker = document.getElementById("plaza-group");
   if (!b) return;
-  plazaTo = b.dataset.to; renderPlazaRecipients(); document.getElementById("plaza-input").focus();
+  if (b.dataset.act === "group") {
+    picker.hidden = !picker.hidden;
+    if (!picker.hidden) renderPlazaGroupPicker();
+    return;
+  }
+  plazaTo = b.dataset.to; picker.hidden = true;
+  if (plazaTo) plazaSeen[plazaTo] = Date.now();
+  renderPlazaRecipients(); renderPlazaLog(); document.getElementById("plaza-input").focus();
 });
+document.getElementById("plaza-group-make").addEventListener("click", function () {
+  var picked = [], status = document.getElementById("plaza-status");
+  document.querySelectorAll("#plaza-group-list input:checked").forEach(function (i) { picked.push(i.value); });
+  if (picked.length < 2) { status.textContent = "단체방은 두 명 이상 선택해 주세요."; return; }
+  status.textContent = ""; plazaTo = picked.sort().join("|"); plazaSeen[plazaTo] = Date.now();
+  document.getElementById("plaza-group").hidden = true;
+  renderPlazaRecipients(); renderPlazaLog(); document.getElementById("plaza-input").focus();
+});
+/** 선택한 대화방의 메시지만 보여줍니다. 전체는 공개 말풍선, 그 외는 같은 참여자들의 대화입니다. */
 function renderPlazaLog() {
-  var el = document.getElementById("plaza-log"), items = [], h;
+  var el = document.getElementById("plaza-log"), items = [], h, group = plazaTo.indexOf("|") >= 0;
   if (!el) return;
-  Object.keys(store.say).forEach(function (id) { var s = store.say[id]; items.push({ at: s.at, who: characterName(id), t: s.t, priv: false }); });
-  privateMessageList().forEach(function (m) {
-    var mine = m.sender === currentUser;
-    items.push({ at: +m.at || 0, who: mine ? "나 → " + m.participants.filter(function (u) { return u !== currentUser; }).map(contactName).join(", ") : contactName(m.sender), t: m.text, priv: true });
-  });
+  if (!plazaTo) {
+    Object.keys(store.say).forEach(function (id) { var s = store.say[id]; items.push({ at: s.at, who: characterName(id), t: s.t, mine: id === currentCharacterId }); });
+  } else {
+    privateMessageList().forEach(function (m) {
+      if (roomKeyOf(m) !== plazaTo) return;
+      items.push({ at: +m.at || 0, who: contactName(m.sender), t: m.text, mine: m.sender === currentUser });
+    });
+    plazaSeen[plazaTo] = Date.now();
+  }
   items.sort(function (a, b) { return a.at - b.at; });
-  h = items.slice(-30).map(function (i) { return '<div class="cmsg' + (i.priv ? " plaza-priv" : "") + '"><div class="cbody"><b>' + (i.priv ? "🔒 " : "") + esc(i.who) + "</b><time>" + fmtT(i.at) + "</time><p>" + esc(i.t) + "</p></div></div>"; }).join("");
-  el.innerHTML = h || '<p class="tempty">아직 대화가 없어요.</p>';
+  h = items.slice(-50).map(function (i) { return '<div class="cmsg' + (i.mine ? " me" : "") + '"><div class="cbody"><b>' + esc(i.who) + "</b><time>" + fmtT(i.at) + "</time><p>" + esc(i.t) + "</p></div></div>"; }).join("");
+  el.innerHTML = h || '<p class="tempty">' + (plazaTo ? (group ? "단체방의 첫 메시지를 보내보세요." : "첫 메시지를 보내보세요.") : "아직 공개 대화가 없어요.") + "</p>";
   el.scrollTop = el.scrollHeight;
+  renderPlazaRecipients();
+}
+function plazaSendDone(ok, message) {
+  var input = document.getElementById("plaza-input"), status = document.getElementById("plaza-status");
+  plazaSending = false;
+  input.disabled = false; document.getElementById("plaza-send").disabled = false;
+  if (ok) { input.value = ""; input.style.height = ""; status.textContent = ""; } else status.textContent = message;
+  renderPlazaLog(); input.focus();
 }
 function sendPlazaChat() {
   var input = document.getElementById("plaza-input"), status = document.getElementById("plaza-status"), to = plazaTo, text = input.value.trim();
-  if (!text) return;
+  if (plazaSending || !text) return;
   if (!dbRef) { status.textContent = "서버에 연결되지 않았어요."; return; }
+  if (!to && !currentCharacterId) { status.textContent = "내 캐릭터가 있어야 말풍선을 띄울 수 있어요."; return; }
+  plazaSending = true; input.disabled = true; document.getElementById("plaza-send").disabled = true;
   if (to) {
-    dbRef.sendPrivateMessage([to], text.slice(0, 500)).then(function () { input.value = ""; status.textContent = ""; renderPlazaLog(); input.focus(); },
-      function () { status.textContent = "메시지를 보내지 못했습니다. 대화 상대를 확인해 주세요."; });
+    dbRef.sendPrivateMessage(to.split("|"), text.slice(0, 500)).then(function () { plazaSendDone(true); },
+      function () { plazaSendDone(false, "메시지를 보내지 못했습니다. 대화 상대를 확인해 주세요."); });
   } else {
-    if (!currentCharacterId) { status.textContent = "내 캐릭터가 있어야 말풍선을 띄울 수 있어요."; return; }
     var doc = { t: text.slice(0, 100), at: Date.now() };
     store.say[currentCharacterId] = doc;
-    dbRef.doc("say/" + currentCharacterId).set(doc).then(function () { input.value = ""; status.textContent = ""; renderPlazaLog(); input.focus(); },
-      function () { status.textContent = "메시지를 보내지 못했습니다."; });
+    dbRef.doc("say/" + currentCharacterId).set(doc).then(function () { plazaSendDone(true); },
+      function () { plazaSendDone(false, "메시지를 보내지 못했습니다."); });
   }
 }
+function growPlazaInput() { var el = document.getElementById("plaza-input"); el.style.height = "auto"; el.style.height = Math.min(120, el.scrollHeight) + "px"; }
+function setPlazaCollapsed(collapsed) {
+  document.getElementById("plaza-chat").classList.toggle("collapsed", collapsed);
+  document.getElementById("world").classList.toggle("chat-collapsed", collapsed);
+  var t = document.getElementById("plaza-toggle");
+  t.setAttribute("aria-expanded", String(!collapsed)); t.textContent = collapsed ? "펼치기 ▼" : "접기 ▲";
+  try { localStorage.setItem("ops-chat-collapsed", collapsed ? "1" : "0"); } catch (e) {}
+}
+document.getElementById("plaza-toggle").addEventListener("click", function () { setPlazaCollapsed(!document.getElementById("plaza-chat").classList.contains("collapsed")); });
+try { if (localStorage.getItem("ops-chat-collapsed") === "1") setPlazaCollapsed(true); } catch (e) {}
 document.getElementById("plaza-send").addEventListener("click", sendPlazaChat);
-document.getElementById("plaza-input").addEventListener("keydown", function (event) { if (event.key === "Enter" && !event.isComposing) { event.preventDefault(); sendPlazaChat(); } });
+document.getElementById("plaza-input").addEventListener("input", growPlazaInput);
+document.getElementById("plaza-input").addEventListener("keydown", function (event) {
+  if (event.key !== "Enter" || event.shiftKey || event.isComposing) return;
+  event.preventDefault();
+  if (!event.repeat) sendPlazaChat();
+});
 document.getElementById("chat-modes").addEventListener("click", function (event) {
   var button = event.target.closest("[data-chat-mode]");
   if (!button) return;
@@ -3236,3 +3314,8 @@ if (window.claude && window.claude.use) {
     }, function () {});
   }, function () {});
 }
+document.getElementById("plaza-search").addEventListener("input", function (event) { plazaQuery = event.target.value.trim().toLowerCase(); renderPlazaRecipients(); });
+document.getElementById("plaza-group-search").addEventListener("input", function (event) {
+  var q = event.target.value.trim().toLowerCase();
+  document.querySelectorAll("#plaza-group-list .private-contact").forEach(function (label) { label.style.display = !q || label.textContent.toLowerCase().indexOf(q) >= 0 ? "" : "none"; });
+});

@@ -92,13 +92,22 @@
         <div class="tip" id="tip" hidden></div>
       </div>
     </div>
-    <aside class="plaza-chat" id="plaza-chat" aria-label="광장 채팅">
-      <h3>광장 채팅</h3>
-      <div class="clist" id="plaza-log" role="log" aria-live="polite"></div>
-      <div class="mlabel">받는 사람</div>
-      <div class="recs plaza-to" id="plaza-to" role="group" aria-label="받는 사람"></div>
-      <div class="jrow"><input id="plaza-input" type="text" maxlength="100" placeholder="말풍선 메시지 (Enter)" aria-label="채팅 메시지" autocomplete="off"><button type="button" id="plaza-send" class="jsave">보내기</button></div>
-      <div class="jstatus" id="plaza-status" role="status"></div>
+    <aside class="plaza-chat" id="plaza-chat" aria-label="채팅">
+      <div class="plaza-head"><h3>채팅</h3><button type="button" id="plaza-toggle" aria-expanded="true" aria-controls="plaza-body">접기 ▲</button></div>
+      <div class="plaza-body" id="plaza-body">
+        <div class="mlabel">대화방</div>
+        <input type="search" id="plaza-search" class="plaza-search" placeholder="대화 상대 검색 (이름·계정)" aria-label="대화 상대 검색" autocomplete="off">
+        <div class="recs plaza-to" id="plaza-to" role="group" aria-label="대화방 선택"></div>
+        <div class="plaza-group" id="plaza-group" hidden>
+          <div class="mlabel">단체방 참여자 (2명 이상)</div>
+          <input type="search" id="plaza-group-search" class="plaza-search" placeholder="참여자 검색" aria-label="단체방 참여자 검색" autocomplete="off">
+          <div class="private-recipients" id="plaza-group-list" role="group" aria-label="단체방 참여자 선택"></div>
+          <button type="button" id="plaza-group-make" class="jsave">단체방 열기</button>
+        </div>
+        <div class="clist" id="plaza-log" role="log" aria-live="polite"></div>
+        <div class="jrow"><textarea id="plaza-input" rows="1" maxlength="500" placeholder="메시지 (Enter 전송 · Shift+Enter 줄바꿈)" aria-label="채팅 메시지" autocomplete="off"></textarea><button type="button" id="plaza-send" class="jsave">보내기</button></div>
+        <div class="jstatus" id="plaza-status" role="status"></div>
+      </div>
     </aside>
     <div class="wcontrols">
       <label><input type="checkbox" id="names" checked> 이름 표시</label>

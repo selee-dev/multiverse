@@ -21,7 +21,8 @@ function inSeatArea(w) {
   return !!h && h.kind === "person" && cx >= h.cx - 42 && cx <= h.cx + 42 && cy >= h.ry - 8 && cy <= h.ry + 66;
 }
 function keyMove(w, dt) {
-  var dx = (keys.right ? 1 : 0) - (keys.left ? 1 : 0), dy = (keys.down ? 1 : 0) - (keys.up ? 1 : 0), len, step, nx, ny, inSeat;
+  if (inActiveMeeting(DATA[w.i])) keys.up = keys.down = keys.left = keys.right = false;   // 회의 중에는 종료될 때까지 방향키 이동 차단
+  var dx =(keys.right ? 1 : 0) - (keys.left ? 1 : 0), dy = (keys.down ? 1 : 0) - (keys.up ? 1 : 0), len, step, nx, ny, inSeat;
   if (!dx && !dy) {
     w.seatHold = false;
     if (w.keyOn) { w.keyOn = false; w.moving = false; sendPos(w); }
@@ -68,8 +69,13 @@ function worldActive() { var el = document.getElementById("world"); return !!el 
 document.addEventListener("keydown", function (e) {
   var k = KEYMAP[e.key];
   if (e.ctrlKey || e.metaKey || e.altKey || typingTarget(e.target) || !worldActive()) return;
-  if (k) { if (!ownWalker()) return; keys[k] = true; e.preventDefault(); return; }
+  if (k) { var me = ownWalker(); if (!me) return; if (!inActiveMeeting(DATA[me.i])) keys[k] = true; e.preventDefault(); return; }
   if (e.key === "Enter" && !e.repeat && nearShop && !/^(BUTTON|A)$/.test(e.target.tagName)) { e.preventDefault(); openShop(nearShop); }
+});
+// 마우스로 버튼을 클릭하면 포커스가 남아 입구 Enter가 무시되므로, 마우스 클릭(detail>0)이면 포커스를 해제한다 (키보드 조작은 유지)
+document.addEventListener("click", function (e) {
+  var b = e.target.closest && e.target.closest("button");
+  if (b && e.detail > 0 && worldActive()) setTimeout(function () { if (document.activeElement === b) b.blur(); }, 0);
 });
 document.addEventListener("keyup", function (e) { var k = KEYMAP[e.key]; if (k) keys[k] = false; });
 window.addEventListener("blur", function () { keys.up = keys.down = keys.left = keys.right = false; });

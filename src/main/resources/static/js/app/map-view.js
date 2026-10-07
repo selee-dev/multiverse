@@ -186,6 +186,7 @@ function draw() {
     }
     if (sit && on && d && isOT(d)) otBadge(s.cx + 18, s.ry + 2);
     if (sit && on && w && w.mode === "away" && w.tag === "lunch") mctx.drawImage(foodIcon("밥"), s.x + CW - 8, s.y + 8 + Math.round(Math.sin(lastT / 260 + w.i) * 3));
+    if (sit && on && w && w.mode === "away" && w.tag === "lunch") presenceBadge("점심", s.cx, s.y - (nameLines(d, off ? " · " + offLabel(d) : "").length * 13 + 20));
     if (!d && s.kind !== "person") label(s.n, s.cx, s.ry + 9, true);
     else if (d && on && (showNames || hover === w || w.mode === "pc")) label(nameLines(d, off ? " · " + offLabel(d) : ""), s.cx, s.y - 4, off);
     if (sit && on && d) drawHealthBattery(s.x, s.y, d, 32);

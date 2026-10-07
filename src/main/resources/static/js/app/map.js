@@ -567,30 +567,19 @@ function grayOf(hex) {
   var y = Math.round((0.3 * r + 0.59 * g + 0.11 * bl) * 0.82 + 22), h = ("0" + y.toString(16)).slice(-2);
   return "#" + h + h + h;
 }
-var SPR_SS = 4;
 function makeSprites(d) {
   var out = ucol(uOf(d));
   return [false, true].map(function (gray) {
     return [0, 1, 2].map(function (st) {
       var cv = document.createElement("canvas"), x;
-      cv.width = CW * SPR_SS; cv.height = CH * SPR_SS; x = cv.getContext("2d");
-      x.scale(SPR_SS, SPR_SS);
-      function tone(c) { c = c === "currentColor" ? out : c; return gray ? grayOf(c) : c; }
-      spriteRects(d, st).forEach(function (shape) {
-        var path = new Path2D(shape.path);
-        x.globalAlpha = shape.opacity;
-        if (shape.fill) { x.fillStyle = tone(shape.fill); x.fill(path); }
-        if (shape.stroke) { x.strokeStyle = tone(shape.stroke); x.lineWidth = shape.strokeWidth; x.lineCap = "round"; x.lineJoin = "round"; x.stroke(path); }
+      cv.width = CW; cv.height = CH; x = cv.getContext("2d");
+      spriteRects(d, st).forEach(function (q) {
+        var col = q[4] === "currentColor" ? out : q[4];
+        x.globalAlpha = q[5]; x.fillStyle = gray ? grayOf(col) : col; x.fillRect(q[0] * 2, q[1] * 2, q[2] * 2, q[3] * 2);
       });
       return cv;
     });
   });
-}
-/* 스프라이트는 4배로 그려 둔 뒤 부드럽게 줄여서 지도에 찍습니다 (지도 자체는 보간 없이 그대로) */
-function blitSprite(c, x, y, h) {
-  mctx.imageSmoothingEnabled = true; mctx.imageSmoothingQuality = "high";
-  mctx.drawImage(c, 0, 0, CW * SPR_SS, (h || CH) * SPR_SS, x, y, CW, h || CH);
-  mctx.imageSmoothingEnabled = false;
 }
 var spr = DATA.map(function (d) { return makeSprites(d); });
 

@@ -210,11 +210,6 @@
         return pull().then(function () { return character; });
       });
     },
-    updateCharacter: function (id, payload) {
-      return req("PUT", API + "/characters/" + encodeURIComponent(id), payload).then(function (character) {
-        return pull().then(function () { return character; });
-      });
-    },
     privateChatContacts: function () { return req("GET", API + "/chats/private/contacts"); },
     setBossVisit: function (enabled) {
       return req("POST", API + "/boss-visit", { enabled: !!enabled }).then(function () {

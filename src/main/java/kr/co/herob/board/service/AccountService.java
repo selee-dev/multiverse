@@ -34,8 +34,6 @@ public class AccountService implements UserDetailsService {
     private static final Set<String> UNIVERSES = Set.of(
         "order", "member", "display", "broadcast", "curation", "fgen",
         "bord", "bprod", "blog", "bsettle", "bgen");
-    /** 피부·눈모양·눈동자·머리·상의·하의·신발 순서의 0~4 선택 번호 7개입니다. 빈 값이면 기본 외형을 씁니다. */
-    private static final java.util.regex.Pattern LOOK_PATTERN = java.util.regex.Pattern.compile("[0-4](,[0-4]){6}");
     private static final RowMapper<HeroCharacter> CHARACTER_ROW = AccountService::mapCharacter;
 
     private final JdbcTemplate jdbc;
@@ -162,7 +160,7 @@ public class AccountService implements UserDetailsService {
 
     /** 등록된 모든 캐릭터를 생성 순서로 조회합니다. */
     public List<HeroCharacter> characters() {
-        return jdbc.query("SELECT CHARACTER_ID, OWNER_ID, NICKNAME, GENDER, TITLE, UNIVERSE, JOB, LOOK "
+        return jdbc.query("SELECT CHARACTER_ID, OWNER_ID, NICKNAME, GENDER, TITLE, UNIVERSE, JOB "
             + "FROM HERO_CHARACTER ORDER BY CREATED_AT, OWNER_ID", CHARACTER_ROW);
     }
 
@@ -184,13 +182,13 @@ public class AccountService implements UserDetailsService {
         }
         try {
             jdbc.update("INSERT INTO HERO_CHARACTER "
-                + "(CHARACTER_ID, OWNER_ID, NICKNAME, GENDER, TITLE, UNIVERSE, JOB, LOOK) VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
-                id, username, fields.name(), fields.gender(), fields.title(), fields.universe(), fields.job(), fields.look());
+                + "(CHARACTER_ID, OWNER_ID, NICKNAME, GENDER, TITLE, UNIVERSE, JOB) VALUES (?, ?, ?, ?, ?, ?, ?)",
+                id, username, fields.name(), fields.gender(), fields.title(), fields.universe(), fields.job());
         } catch (DuplicateKeyException e) {
             throw new ResponseStatusException(HttpStatus.CONFLICT, "캐릭터를 생성할 수 없습니다.");
         }
         return new HeroCharacter(id, username, fields.name(), fields.gender(), fields.title(),
-            fields.universe(), fields.job(), fields.look(), true);
+            fields.universe(), fields.job(), true);
     }
 
     /** 캐릭터 소유자 또는 관리자의 권한을 확인한 뒤 캐릭터를 갱신합니다. */
@@ -198,10 +196,10 @@ public class AccountService implements UserDetailsService {
         HeroCharacter existing = findCharacter(id);
         requireOwnerOrAdmin(existing, username, admin);
         CharacterFields fields = validateFields(input, existing);
-        jdbc.update("UPDATE HERO_CHARACTER SET NICKNAME = ?, GENDER = ?, TITLE = ?, UNIVERSE = ?, JOB = ?, LOOK = ? "
-                + "WHERE CHARACTER_ID = ?", fields.name(), fields.gender(), fields.title(), fields.universe(), fields.job(), fields.look(), id);
+        jdbc.update("UPDATE HERO_CHARACTER SET NICKNAME = ?, GENDER = ?, TITLE = ?, UNIVERSE = ?, JOB = ? "
+                + "WHERE CHARACTER_ID = ?", fields.name(), fields.gender(), fields.title(), fields.universe(), fields.job(), id);
         return new HeroCharacter(id, existing.ownerId(), fields.name(), fields.gender(), fields.title(),
-            fields.universe(), fields.job(), fields.look(), true);
+            fields.universe(), fields.job(), true);
     }
 
     /** 권한을 확인하고 캐릭터와 해당 계정의 문서를 제거합니다. */
@@ -228,7 +226,7 @@ public class AccountService implements UserDetailsService {
     }
 
     private HeroCharacter findCharacter(String id) {
-        List<HeroCharacter> found = jdbc.query("SELECT CHARACTER_ID, OWNER_ID, NICKNAME, GENDER, TITLE, UNIVERSE, JOB, LOOK "
+        List<HeroCharacter> found = jdbc.query("SELECT CHARACTER_ID, OWNER_ID, NICKNAME, GENDER, TITLE, UNIVERSE, JOB "
             + "FROM HERO_CHARACTER WHERE CHARACTER_ID = ?", CHARACTER_ROW, id);
         if (found.isEmpty()) throw new ResponseStatusException(HttpStatus.NOT_FOUND, "캐릭터를 찾을 수 없습니다.");
         return found.get(0);
@@ -248,9 +246,7 @@ public class AccountService implements UserDetailsService {
         if (!"m".equals(gender) && !"f".equals(gender)) throw new IllegalArgumentException("성별 값이 올바르지 않습니다.");
         if (title.length() > 8 || job.length() > 16) throw new IllegalArgumentException("직급 또는 직업의 길이가 너무 깁니다.");
         if (!UNIVERSES.contains(universe)) throw new IllegalArgumentException("유니버스 값이 올바르지 않습니다.");
-        String look = value(input, "l", existing == null ? "" : existing.l()).trim();
-        if (!look.isEmpty() && !LOOK_PATTERN.matcher(look).matches()) throw new IllegalArgumentException("외형 값이 올바르지 않습니다.");
-        return new CharacterFields(name, gender, title, universe, job.isBlank() ? "팀원" : job, look);
+        return new CharacterFields(name, gender, title, universe, job.isBlank() ? "팀원" : job);
     }
 
     private static String value(Map<String, String> input, String key, String fallback) {
@@ -265,8 +261,8 @@ public class AccountService implements UserDetailsService {
     private static HeroCharacter mapCharacter(ResultSet rs, int rowNum) throws SQLException {
         return new HeroCharacter(rs.getString("CHARACTER_ID"), rs.getString("OWNER_ID"),
             rs.getString("NICKNAME"), rs.getString("GENDER"), rs.getString("TITLE"),
-            rs.getString("UNIVERSE"), rs.getString("JOB"), rs.getString("LOOK"), true);
+            rs.getString("UNIVERSE"), rs.getString("JOB"), true);
     }
 
-    private record CharacterFields(String name, String gender, String title, String universe, String job, String look) {}
+    private record CharacterFields(String name, String gender, String title, String universe, String job) {}
 }

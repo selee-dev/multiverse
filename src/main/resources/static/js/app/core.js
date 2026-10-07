@@ -66,7 +66,7 @@ function peopleList() {
 function makeMember(m) {
   var r = rng(hash(m.id)), s = [], j, u = UNI[m.u] && UNI[m.u].side !== "proj" ? m.u : "order";
   for (j = 0; j < 5; j++) s.push(58 + Math.floor(r() * 30));
-  return { n: String(m.n).slice(0, 30), bn: String(m.n).slice(0, 30), g: m.g === "f" ? "f" : "m", t: String(m.t || "").slice(0, 8), u: u, c: String(m.c || "팀원").slice(0, 16), lv: 18 + Math.floor(r() * 20), s: s, k: "", kd: "", q: "", id: m.id, seat: typeof m.s === "number" ? m.s : null, mem: true, accountCharacter: !!m.accountCharacter, look: parseLook(m.l) };
+  return { n: String(m.n).slice(0, 30), bn: String(m.n).slice(0, 30), g: m.g === "f" ? "f" : "m", t: String(m.t || "").slice(0, 8), u: u, c: String(m.c || "팀원").slice(0, 16), lv: 18 + Math.floor(r() * 20), s: s, k: "", kd: "", q: "", id: m.id, seat: typeof m.s === "number" ? m.s : null, mem: true, accountCharacter: !!m.accountCharacter };
 }
 function extendData() {
   DATA.length = 0;

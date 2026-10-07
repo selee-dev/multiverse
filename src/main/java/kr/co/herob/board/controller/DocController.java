@@ -168,9 +168,7 @@ public class DocController {
     /** 캐릭터 소유자 또는 관리자가 캐릭터 정보를 수정합니다. */
     @PutMapping("/characters/{id}")
     public HeroCharacter updateCharacter(@PathVariable String id, @RequestBody Map<String, String> payload) {
-        HeroCharacter character = accounts.updateCharacter(id, auth.currentUser(), auth.isAdmin(), payload);
-        events.emitRefresh();
-        return character;
+        return accounts.updateCharacter(id, auth.currentUser(), auth.isAdmin(), payload);
     }
 
     /** 캐릭터와 연결된 문서를 삭제합니다. */

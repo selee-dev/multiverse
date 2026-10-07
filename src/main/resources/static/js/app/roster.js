@@ -66,62 +66,20 @@ function power(d) { return statOf(d).reduce(function (a, b) { return a + b; }, 0
 function rarity(lv) { return lv >= 50 ? ["전설", "#f4c95d", "r-legend"] : lv >= 38 ? [WORLD_THEME === "office" ? "직원" : "영웅", "#e6e9f5", ""] : lv >= 26 ? ["희귀", "#8fa3d6", ""] : ["일반", "#6b7399", ""]; }
 
 function spriteRects(d, step) {
-  var r = rng(hash(d.bn || d.n)), out = [];
+  var r = rng(hash(d.bn || d.n));
   function pick(a) { return a[Math.floor(r() * a.length)]; }
-  function R(x, y, w, h, fill, op) { out.push([x, y, w, h, fill, op || 1]); }
-  var f = d.g === "f", OUT = "currentColor", GOLD = "#f4c95d", SH = "#14172b";
-  var skin = pick(["#f7d9bf", "#f0c8a4", "#e3b08a"]);
+  var f = d.g === "f";
+  var skin = Math.floor(r() * 3);
   var hair = pick(["#1c1a24", "#2d2320", "#4a3225"]);
   var style = Math.floor(r() * 3);
   var crown = ["상무", "이사", "팀장"].indexOf(ttl(d)) >= 0;
   var senior = ["상무", "이사", "팀장", "부장"].indexOf(ttl(d)) >= 0;
-  var pants = f ? skin : "#2a3050";
-  R(3, 19, 8, 1, "#000", 0.3);
-  /* 뒷머리 */
-  if (f) {
-    if (style === 0) R(1, 2, 12, 10, hair);
-    else if (style === 1) R(1, 2, 12, 7, hair);
-    else { R(2, 2, 10, 4, hair); R(12, 4, 1, 6, hair); R(13, 6, 1, 3, hair); }
-  }
-  /* 다리 */
-  R(4, 16, 2, 2, pants); R(8, 16, 2, 2, pants);
-  if (step === 1) { R(4, 17, 3, 1, SH); R(8, 18, 3, 1, SH); }
-  else if (step === 2) { R(4, 18, 3, 1, SH); R(8, 17, 3, 1, SH); }
-  else { R(4, 18, 3, 1, SH); R(8, 18, 3, 1, SH); }
-  /* 몸 */
-  R(3, 12, 8, 4, OUT); R(2, 12, 1, 3, OUT); R(11, 12, 1, 3, OUT);
-  R(10, 12, 1, 4, "#000", 0.18);
-  R(2, 15, 1, 1, skin); R(11, 15, 1, 1, skin);
-  R(6, 12, 2, 1, "#fff", 0.9);
-  if (!f && senior) R(6, 13, 2, 2, "#1e2a4a");
-  /* 얼굴 */
-  R(2, 2, 10, 9, skin); R(3, 11, 8, 1, skin);
-  if (!f) R(2, 10, 10, 1, "#000", 0.06);
-  /* 머리카락 */
-  R(3, 1, 8, 1, hair); R(2, 2, 10, 3, hair);
-  if (!f && style === 2) { R(2, 5, 4, 1, hair); R(11, 5, 1, 1, hair); }
-  if (!f && style === 0) { R(2, 5, 1, 3, hair); R(11, 5, 1, 3, hair); }
-  if (!f && style === 1 && !crown) { R(4, 0, 1, 1, hair); R(6, 0, 2, 1, hair); R(9, 0, 1, 1, hair); }
-  if (f && style < 2) { R(2, 5, 1, 5, hair); R(11, 5, 1, 5, hair); }
-  if (f && style === 2) { R(2, 5, 1, 2, hair); }
-  /* 눈·눈썹·입 */
-  R(4, 5, 2, 1, hair); R(8, 5, 2, 1, hair);
-  R(4, 6, 2, 3, "#1a1a2a"); R(8, 6, 2, 3, "#1a1a2a");
-  R(4, 6, 1, 1, "#fff"); R(8, 6, 1, 1, "#fff");
-  R(6, 10, 2, 1, f ? "#d0606c" : "#b07060");
-  if (f) { R(3, 9, 1, 1, "#f29a9a", 0.8); R(10, 9, 1, 1, "#f29a9a", 0.8); }
-  else R(3, 9, 1, 1, "#e08a70", 0.35), R(10, 9, 1, 1, "#e08a70", 0.35);
-  if (crown) { R(3, 1, 8, 1, GOLD); R(3, 0, 1, 1, GOLD); R(6, 0, 2, 1, GOLD); R(10, 0, 1, 1, GOLD); }
-  return out;
+  /* 외형을 고르지 않은 캐릭터는 이름으로 정해지는 기본 외형(재킷·슬랙스/치마·구두)을 씁니다 */
+  var look = d.look || [skin, 0, 0, style, 0, f ? 4 : 0, 1];
+  return Look.rects(look, f, step, { hair: hair, crown: crown, senior: senior });
 }
 
-function sprite(d) {
-  var o = "";
-  spriteRects(d, 0).forEach(function (q) {
-    o += '<rect x="' + q[0] + '" y="' + q[1] + '" width="' + q[2] + '" height="' + q[3] + '" fill="' + q[4] + '"' + (q[5] < 1 ? ' fill-opacity="' + q[5] + '"' : "") + "/>";
-  });
-  return '<svg viewBox="0 0 14 20" shape-rendering="crispEdges" aria-hidden="true">' + o + "</svg>";
-}
+function sprite(d) { return Look.svgOf(spriteRects(d, 0)); }
 
 function titleEditor(d) {
   var chips = "";
@@ -145,6 +103,22 @@ function saveNick(i, val) {
   var d = DATA[i], id = jobId(d), v = String(val || "").trim().slice(0, 30), st = document.querySelector("#nickpanel .jstatus"), reset = !v || v === d.bn;
   if (!reset && DATA.some(function (m, j) { return j !== i && m.n === v; })) { if (st) st.textContent = "이미 있는 닉네임이에요."; return; }
   commit("nicks", id, reset ? null : { n: v }, function () { rebuildExternal(false); renderPick(); renderMeets(); if (state.view === "team") renderTeam(); }, "#nickpanel .jstatus");
+}
+var lookCtl = null;
+function lookEditor(d) {
+  return '<div class="jobedit" id="lookpanel" hidden><div class="mlabel">외모 꾸미기</div><div class="look-picker" id="lookmount"></div>' +
+    '<div class="jrow" style="margin-top:8px"><button type="button" class="jsave looksave">저장</button><button type="button" class="jcancel">취소</button></div>' +
+    '<div class="jstatus" role="status"></div></div>';
+}
+function saveLook(i) {
+  var d = DATA[i], st = document.querySelector("#lookpanel .jstatus");
+  if (!lookCtl || !d || !dbRef || !dbRef.updateCharacter) return;
+  st.textContent = "저장하는 중...";
+  dbRef.updateCharacter(d.id, { l: lookCtl.get() }).then(function () {
+    rebuildExternal(false); renderGrid();
+    var j = indexOfId(d.id);
+    if (j >= 0) openSheet(j, null);
+  }, function () { st.textContent = "저장하지 못했어요. 잠시 후 다시 시도해 주세요."; });
 }
 function skillEditor(d) {
   return '<div class="jobedit" id="skillpanel" hidden><div class="mlabel">고유 스킬</div>' +
@@ -476,12 +450,12 @@ function openSheet(i, opener) {
     '<div class="smeta"><span>' + esc(tline(d)) + '<b class="jobname">' + esc(job(d)) + "</b> · " + esc(u.realm) + "</span>" +
     "</div>" +
     (canEdit ? '<div class="sedit" role="group" aria-label="캐릭터 편집">' +
-      '<div class="eg"><span class="egl">프로필</span><button type="button" class="mini editnick">닉네임</button><button type="button" class="mini editjob">직업</button><button type="button" class="mini edittitle">직급</button><button type="button" class="mini editskill">스킬</button><button type="button" class="mini editstat">스탯</button><button type="button" class="mini edithp">체력</button></div>' +
+      '<div class="eg"><span class="egl">프로필</span><button type="button" class="mini editnick">닉네임</button><button type="button" class="mini editjob">직업</button><button type="button" class="mini edittitle">직급</button><button type="button" class="mini editskill">스킬</button><button type="button" class="mini editstat">스탯</button><button type="button" class="mini edithp">체력</button>' + (d.accountCharacter && dbRef && dbRef.updateCharacter ? '<button type="button" class="mini editlook">외모</button>' : "") + '</div>' +
       '<div class="eg"><span class="egl">근무</span>' + (d.off ? "" : '<button type="button" class="mini editatt">근태</button>') + '<button type="button" class="mini editpres">상태</button><button type="button" class="mini editseat">자리</button></div>' +
       (d.ext ? "" : '<div class="eg"><span class="egl">소속</span><button type="button" class="mini editmove">전출</button></div>') + "</div>" : "") +
     '<div class="attline' + (off ? " off" : "") + '">근태 · ' + esc(attText(d)) + "</div>" +
     (snackNow()[uOf(d)] ? '<div class="snkline">🍪 우리 팀 간식 당번 · ~' + md(snackNow()[uOf(d)].to) + " · " + esc(snackNow()[uOf(d)].items.join(", ")) + "</div>" : "") +
-    (canEdit ? jobEditor(d) + nickEditor(d) + titleEditor(d) + skillEditor(d) + statEditor(d) + healthEditor(d) + presEditor(d) + attEditor(d) + (d.ext ? "" : moveEditor(d)) + seatEditor(d) : "") +
+    (canEdit ? jobEditor(d) + nickEditor(d) + titleEditor(d) + (d.accountCharacter ? lookEditor(d) : "") + skillEditor(d) + statEditor(d) + healthEditor(d) + presEditor(d) + attEditor(d) + (d.ext ? "" : moveEditor(d)) + seatEditor(d) : "") +
     '<div class="tasks"><div class="mlabel">맡은 업무<b id="tcount"></b></div><ul class="tlist" id="tlist"></ul>' +
     (canEdit ? '<div class="jrow"><input id="tin" type="text" maxlength="60" placeholder="업무 추가 (Enter)" aria-label="업무 내용"><input id="tdue" class="tdue-in" type="date" min="' + todayStr() + '" aria-label="마감 기한 (선택)" title="마감 기한 (선택)"><button type="button" class="tadd">추가</button></div>' : "") +
     '<div class="jstatus" id="tstatus" role="status"></div></div>' +
@@ -538,6 +512,8 @@ document.getElementById("veil").addEventListener("click", function (e) {
   if (e.target.closest(".tisave")) { saveTitle(openIdx, document.getElementById("titin").value); return; }
   if (e.target.closest(".tireset")) { saveTitle(openIdx, ""); return; }
   if (e.target.closest(".editnick")) { var np = showPanel("nickpanel"); if (!np.hidden) { var ni2 = document.getElementById("nkin"); ni2.value = DATA[openIdx].n; ni2.focus(); ni2.select(); } return; }
+  if (e.target.closest(".editlook")) { var lp = showPanel("lookpanel"); if (!lp.hidden) lookCtl = Look.mount(document.getElementById("lookmount"), DATA[openIdx].look, DATA[openIdx].g); return; }
+  if (e.target.closest(".looksave")) { saveLook(openIdx); return; }
   if (e.target.closest(".nksave")) { saveNick(openIdx, document.getElementById("nkin").value); return; }
   if (e.target.closest(".nkreset")) { saveNick(openIdx, ""); return; }
   if (e.target.closest(".editskill")) { var sp = showPanel("skillpanel"); if (!sp.hidden) { var sk = skl(DATA[openIdx]); document.getElementById("skk").value = sk.k; document.getElementById("skkd").value = sk.kd; document.getElementById("skq").value = sk.q; document.getElementById("skk").focus(); } return; }

@@ -60,6 +60,14 @@ public class DocService {
             if (accountCharacter
                 && !activeCharacterIds.contains(member.path("id").asText())) members.remove(i);
         }
+        // 외형은 캐릭터 테이블이 원본이므로 이미 저장된 멤버 문서에도 항상 최신 값을 덮어씁니다.
+        for (HeroCharacter character : activeCharacters) {
+            for (JsonNode member : members) {
+                if (member instanceof ObjectNode node && character.id().equals(node.path("id").asText())) {
+                    node.put("l", character.l() == null ? "" : character.l());
+                }
+            }
+        }
         Set<String> knownIds = new java.util.HashSet<>();
         members.forEach(member -> {
             if (member.hasNonNull("id")) knownIds.add(member.get("id").asText());
@@ -73,6 +81,7 @@ public class DocService {
                 member.put("t", character.t());
                 member.put("u", character.u());
                 member.put("c", character.c());
+                member.put("l", character.l() == null ? "" : character.l());
                 member.put("accountCharacter", true);
                 members.add(member);
             }

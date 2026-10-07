@@ -175,7 +175,7 @@ function draw() {
     }
     mctx.fillStyle = WORLD_THEME === "office" ? "#d7d0c4" : "#1e2340"; mctx.fillRect(s.cx - 16, s.ry + 14, 32, 26);
     drawMonitor(s, s.kind === "pc" || sit);
-    if (sit) mctx.drawImage(spr[w.i][off ? 1 : 0][0], 0, 0, CW, 32, s.x, s.y, CW, 32);
+    if (sit) blitSprite(spr[w.i][off ? 1 : 0][0], s.x, s.y, 32);
     drawDesk(s, tint, s.kind === "pc");
     if (d && sn[uOf(d)] && !off) { var its = sn[uOf(d)].items; mctx.drawImage(foodIcon(its[s.idx % its.length]), s.cx + 24, s.ry + 44); }
     if (d && pidCount[nm]) {
@@ -204,8 +204,8 @@ function draw() {
     var ph = Math.floor(w.anim * 5), fr = w.moving ? (ph % 2 ? 1 : 2) : 0, bob = w.moving && ph % 2 ? 2 : 0;
     var x = Math.round(w.x), y = Math.round(w.y) - bob, sitting = w.seat && !w.route.length && Math.abs(w.x - w.seat.x) < 2 && Math.abs(w.y - w.seat.y) < 2;
     mctx.globalAlpha = on ? (gn ? 0.4 : 1) : 0.22;
-    if (sitting) mctx.drawImage(spr[w.i][off ? 1 : 0][0], 0, 0, CW, 32, x, y, CW, 32);
-    else mctx.drawImage(spr[w.i][off ? 1 : 0][fr], x, y);
+    if (sitting) blitSprite(spr[w.i][off ? 1 : 0][0], x, y, 32);
+    else blitSprite(spr[w.i][off ? 1 : 0][fr], x, y);
     if (on) drawHealthBattery(x, y, d);
     if (w.mode === "away" && w.tag === "lunch") {
       if (WORLD_THEME !== "battlefield") mctx.drawImage(foodIcon("밥"), x + CW - 8, y + 8 + Math.round(Math.sin(lastT / 260 + w.i) * 3));

@@ -9,5 +9,6 @@ public record HeroCharacter(
     String t,
     String u,
     String c,
+    String l,
     boolean accountCharacter
 ) {}

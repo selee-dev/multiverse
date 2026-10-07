@@ -65,6 +65,26 @@ class DocApiTest {
     }
 
     @Test
+    void 캐릭터_외형을_저장하고_검증하며_people_문서에_반영한다() throws Exception {
+        MockHttpSession session = register(uniqueUser("look"));
+        mvc.perform(post("/api/characters").session(session)
+                .contentType(MediaType.APPLICATION_JSON).content("{\"n\":\"Bad Look\",\"l\":\"5,0,0,0,0,0,0\"}"))
+            .andExpect(status().isBadRequest());
+        MvcResult created = mvc.perform(post("/api/characters").session(session)
+                .contentType(MediaType.APPLICATION_JSON).content("{\"n\":\"Look Hero\",\"g\":\"f\",\"l\":\"1,2,3,4,0,1,2\"}"))
+            .andExpect(status().isCreated()).andExpect(jsonPath("$.l").value("1,2,3,4,0,1,2")).andReturn();
+        String id = json.readTree(created.getResponse().getContentAsString()).get("id").asText();
+        mvc.perform(put("/api/characters/" + id).session(session)
+                .contentType(MediaType.APPLICATION_JSON).content("{\"l\":\"0,0,0,0,4,4,4\"}"))
+            .andExpect(status().isOk()).andExpect(jsonPath("$.n").value("Look Hero"))
+            .andExpect(jsonPath("$.l").value("0,0,0,0,4,4,4"));
+        mvc.perform(get("/api/docs").session(session))
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.people.main.list[?(@.id=='" + id + "')].l").value("0,0,0,0,4,4,4"));
+        mvc.perform(delete("/api/characters/" + id).session(session)).andExpect(status().isNoContent());
+    }
+
+    @Test
     void 가입_세션_캐릭터_소유권과_관리자_권한을_검사한다() throws Exception {
         String owner = uniqueUser("owner");
         MockHttpSession ownerSession = register(owner);

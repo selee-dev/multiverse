@@ -104,13 +104,18 @@
     }).catch(function () {});
   });
 
+  var genderSelect = document.getElementById("character-gender");
+  var lookPicker = window.Look.mount(document.getElementById("character-look"), null, genderSelect.value);
+  genderSelect.addEventListener("change", function () { lookPicker.setGender(genderSelect.value); });
+
   characterForm.addEventListener("submit", function (event) {
     event.preventDefault();
     showStatus("캐릭터를 등록하는 중...", false);
     request("characters", {
       n: document.getElementById("character-name").value,
-      g: document.getElementById("character-gender").value,
-      u: document.getElementById("character-universe").value
+      g: genderSelect.value,
+      u: document.getElementById("character-universe").value,
+      l: lookPicker.get()
     }).then(function () { window.location.reload(); }, function (error) { showStatus(error.message, true); });
   });
 

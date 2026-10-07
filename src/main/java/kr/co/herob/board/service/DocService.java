@@ -47,7 +47,7 @@ public class DocService {
                 // 깨진 JSON 행은 건너뜁니다.
             }
         }
-        ObjectNode main = ((ObjectNode) root.get("people")).with("main");
+        ObjectNode main = ((ObjectNode) root.get("people")).withObject("/main");
         ArrayNode members = main.withArray("list");
         List<HeroCharacter> activeCharacters = accounts.characters();
         Set<String> activeCharacterIds = activeCharacters.stream()

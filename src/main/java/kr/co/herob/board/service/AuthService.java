@@ -1,7 +1,6 @@
 package kr.co.herob.board.service;
 
 import java.util.Set;
-import kr.co.herob.board.service.AccountService;
 import org.springframework.security.authentication.AnonymousAuthenticationToken;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;

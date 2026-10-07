@@ -46,6 +46,9 @@ try { var rawJobs = localStorage.getItem("ops-jobs"); if (rawJobs) jobs = JSON.p
 try { var rawMv = localStorage.getItem("ops-moves"); if (rawMv) moves = JSON.parse(rawMv) || {}; } catch (e) { moves = {}; }
 try { var rawSt = localStorage.getItem("ops-status"); if (rawSt) leaves = JSON.parse(rawSt) || {}; } catch (e) { leaves = {}; }
 
+/* core.js가 로드 시점에 extendData()로 호출하므로 이 파일에 둬야 해요 */
+function hash(str) { var h = 2166136261; for (var i = 0; i < str.length; i++) { h ^= str.charCodeAt(i); h = Math.imul(h, 16777619); } return h >>> 0; }
+function rng(seed) { var a = seed; return function () { a |= 0; a = a + 0x6D2B79F5 | 0; var t = Math.imul(a ^ a >>> 15, 1 | a); t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t; return ((t ^ t >>> 14) >>> 0) / 4294967296; }; }
 var INVCAP = 14;
 var PSLOTS = ["p1", "p2", "p3"];
 var store = { tasks: {}, meetings: {}, projects: {}, titles: {}, snacks: {}, stats: {}, health: {}, chat: {}, privateChats: {}, say: {}, pres: {}, skills: {}, nicks: {}, cfg: {}, ot: {}, seats: {}, people: {}, pos: {} };

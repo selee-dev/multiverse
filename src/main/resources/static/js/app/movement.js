@@ -37,7 +37,7 @@ function keyMove(w, dt) {
   else if (!plazaBlocked(nx, w.y)) w.x = nx;
   else if (!plazaBlocked(w.x, ny)) w.y = ny;
   w.route = []; w.tx = w.x; w.ty = w.y; w.moving = true; w.anim += dt; w.keyOn = true; w.keyAt = Date.now();
-  if (WORLD_THEME === "office" && w.mode === "desk") {
+  if (WORLD_THEME === "office" && (w.mode === "desk" || (w.mode === "away" && w.tag === "lunch"))) {
     inSeat = inSeatArea(w);
     if (inSeat && !w.inSeat) {
       w.x = w.hd.x; w.y = w.hd.y; w.tx = w.x; w.ty = w.y; w.moving = false; w.inSeat = true; w.seatHold = true;
@@ -82,7 +82,7 @@ window.addEventListener("blur", function () { keys.up = keys.down = keys.left = 
 function update(dt) {
   var me = ownWalker();
   nearShop = WORLD_THEME === "plaza" && me ? plazaShopAt(me.x, me.y) : null;
-  if (reduceMotion) {
+  if (reduceMotion && !autoMoveOn) {
     if (me) keyMove(me, dt);
     walkers.forEach(function (w) { var p = w !== me && posOf(w); if (p && posLive(w.id)) { jump(w, [p.x, p.y]); w.posT = p.t; } });
     return;

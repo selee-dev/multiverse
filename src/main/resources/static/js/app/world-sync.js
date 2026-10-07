@@ -64,7 +64,7 @@ function syncMeetings(initial) {
   if (WORLD_THEME === "battlefield") walkers.forEach(function (w) { var d0 = DATA[w.i]; if (!seats[w.id] && !onLeave(d0, today) && !isGone(d0, now) && presenceOf(d0, now) === "lunch") lunchers.push(w.id); });
   lunchers.sort(); LUNCH.n = lunchers.length;
   walkers.forEach(function (w) {
-    var d = DATA[w.i], s = seats[w.id], pc = pcUseOf(d), mode, tag = "", key, quick = initial || reduceMotion || !autoMoveOn || w.mode === "gone", sp, h, t2, prev = w.mode, hold = posOf(w);
+    var d = DATA[w.i], s = seats[w.id], pc = pcUseOf(d), mode, tag = "", key, quick = initial || !autoMoveOn || w.mode === "gone", sp, h, t2, prev = w.mode, hold = posOf(w);
     if (onLeave(d, today)) mode = "leave";
     else if (isGone(d, now)) mode = "gone";
     else if (s) mode = "meet";
@@ -72,13 +72,18 @@ function syncMeetings(initial) {
     else { tag = presenceOf(d, now); mode = tag ? "away" : "desk"; }
     key = WORLD_THEME + ":" + mode + ":" + (mode === "meet" ? s.k + ":" + s.x + ":" + s.y : mode === "pc" ? pc.idx : "") + tag + (shouldSitAtDesk(d, now) ? ":working" : ":off-desk") + (mode === "away" && tag === "lunch" ? ":" + lunchers.indexOf(w.id) + "/" + lunchers.length : "");
     if (w.pkey === key) return;
-    w.pkey = key; w.mode = mode; w.tag = tag; w.seat = mode === "meet" ? s : null; w.pc = mode === "pc" ? pc : null;
+    var prevKey = w.pkey; w.pkey = key; w.mode = mode; w.tag = tag; w.seat = mode === "meet" ? s : null; w.pc = mode === "pc" ? pc : null;
     if (!autoMoveOn && hold && (mode === "desk" || mode === "away")) { if (prev === "meet" || prev === "pc") jump(w, [hold.x, hold.y]); return; }
     if (mode === "gone") { w.route = []; w.moving = false; w.seat = null; }
     else if (mode === "leave") { sp = leaveSpot(w); w.route = []; w.moving = false; w.x = sp[0]; w.y = sp[1]; w.tx = w.x; w.ty = w.y; }
     else if (mode === "meet") { if (quick) jump(w, [s.x, s.y]); else goTo(w, [s.x, s.y]); }
     else if (mode === "pc") { t2 = [pc.x, pc.y]; if (quick) jump(w, t2); else goTo(w, t2); }
-    else if (mode === "away" && tag === "lunch" && WORLD_THEME !== "battlefield") { w.route = []; w.moving = false; }
+    else if (mode === "away" && tag === "lunch" && WORLD_THEME !== "battlefield") {
+      /* 사무실: 자리로 돌아가 앉기, 광장: 전장에서 모여 있던 위치였다면 흩어지고 아니면 그 자리 유지 */
+      if (WORLD_THEME === "office" && w.hd && shouldSitAtDesk(d, now)) { h = homeDest(w); if (quick) jump(w, h); else goTo(w, h); }
+      else if (/^battlefield:/.test(String(prevKey))) { h = homeDest(w); jump(w, h); }
+      else { w.route = []; w.moving = false; }
+    }
     else if (mode === "away") { t2 = tag === "lunch" && WORLD_THEME === "battlefield" ? lunchSpot(lunchers.indexOf(w.id), lunchers.length) : awayDest(); if (quick) jump(w, t2); else goTo(w, t2); }
     else { h = homeDest(w); if (quick) jump(w, h); else goTo(w, h); }
   });

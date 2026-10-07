@@ -48,8 +48,6 @@ function saveJob(i, val) {
   }
 }
 
-function hash(str) { var h = 2166136261; for (var i = 0; i < str.length; i++) { h ^= str.charCodeAt(i); h = Math.imul(h, 16777619); } return h >>> 0; }
-function rng(seed) { var a = seed; return function () { a |= 0; a = a + 0x6D2B79F5 | 0; var t = Math.imul(a ^ a >>> 15, 1 | a); t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t; return ((t ^ t >>> 14) >>> 0) / 4294967296; }; }
 function statOf(d) {
   var o = store.stats[jobId(d)];
   return o && Array.isArray(o.s) && o.s.length === 5 ? o.s.map(function (v) { return Math.max(0, Math.min(100, Math.round(+v || 0))); }) : d.s;

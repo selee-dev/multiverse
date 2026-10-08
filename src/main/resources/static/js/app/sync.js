@@ -11,7 +11,7 @@ if (window.claude && window.claude.use) {
   window.claude.use("db").then(function (db) {
     if (!db) { if (window.bootDone) window.bootDone(); return; }
     dbRef = db;
-    db.privateChatContacts().then(function (contacts) { privateContacts = contacts || []; renderPrivateContacts(); renderPrivateChat(); renderPlazaRecipients(); renderPlazaLog(); }, function () {});
+    refreshPrivateContacts();
     db.collection("privateChats").onSnapshot(function (snap) {
       var m = {};
       snap.docs.forEach(function (doc) { var value = doc.data(); if (value && Array.isArray(value.participants)) m[doc.id] = value; });
@@ -33,6 +33,7 @@ if (window.claude && window.claude.use) {
       store.people = m;
       var first = !loaded.people; loaded.people = true;
       rebuildExternal(first);
+      if (!first) refreshPrivateContacts();
       if (first && window.bootDone) window.bootDone();
       if (state.view === "team") renderTeam();
       if (state.view === "meet") { renderPick(); renderMeets(); }

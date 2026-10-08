@@ -32,7 +32,7 @@ function setView(v) {
     document.getElementById("notice-pane").hidden = false;
     document.getElementById("private-pane").hidden = true;
     document.querySelectorAll("#chat-modes .chat-mode").forEach(function (tab) { tab.setAttribute("aria-selected", String(tab.dataset.chatMode === chatMode)); });
-    renderChatWho(); renderChat(true); renderPrivateChat(); markSeen();
+    refreshPrivateContacts(); renderChatWho(); renderChat(true); renderPrivateChat(); markSeen();
   }
   else updateBadge();
   if (v === "snack") { if (!document.getElementById("sfrom").value) resetSnackForm(); else renderSnackForm(); renderSnack(); }

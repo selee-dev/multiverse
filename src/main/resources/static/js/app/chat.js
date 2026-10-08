@@ -167,6 +167,10 @@ function sendChat() {
 }
 
 /* ---- 개인·단체 대화 탭 ---- */
+function refreshPrivateContacts() {
+  if (!dbRef) return;
+  dbRef.privateChatContacts().then(function (contacts) { privateContacts = contacts || []; renderPrivateContacts(); renderPrivateChat(); renderPlazaRecipients(); renderPlazaLog(); }, function () {});
+}
 function renderPrivateContacts() {
   var list = document.getElementById("private-recipients"), selected = {};
   checkedValues("#private-recipients").forEach(function (username) { selected[username] = true; });
@@ -319,7 +323,7 @@ document.getElementById("chat-modes").addEventListener("click", function (event)
   document.getElementById("notice-pane").hidden = chatMode !== "notice";
   document.getElementById("private-pane").hidden = chatMode !== "private";
   document.querySelectorAll("#chat-modes .chat-mode").forEach(function (tab) { tab.setAttribute("aria-selected", String(tab === button)); });
-  if (chatMode === "private") { renderPrivateChat(); markPrivateSeen(); }
+  if (chatMode === "private") { refreshPrivateContacts(); renderPrivateChat(); markPrivateSeen(); }
   else { renderChat(); markSeen(); }
 });
 document.getElementById("private-open").addEventListener("click", openPrivateConversation);

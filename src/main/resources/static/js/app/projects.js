@@ -19,7 +19,7 @@ function keepForm(root, fn) {
   if (act) { var e2 = root.querySelector('[data-k="' + act + '"]'); if (e2) e2.focus(); }
 }
 function renderProjects() {
-  var root = document.getElementById("plist"), can = canManageSharedOperations();
+  var root = document.getElementById("plist");
   refreshForms();
   renderProjectHeroPick();
   keepForm(root, function () {
@@ -27,7 +27,7 @@ function renderProjects() {
     PSLOTS.forEach(function (k) {
       var p = store.projects[k];
       if (!p || typeof p.name !== "string") return;
-      var mem = Array.isArray(p.members) ? p.members : [];
+      var mem = Array.isArray(p.members) ? p.members : [], can = canManageGroup(mem.map(function (m) { return m.id; }));
       h += '<article class="pcard" style="--c:' + UNI[k].color + '"><div class="phead">';
       if (renaming[k]) h += '<input class="pin" type="text" data-k="rn:' + k + '" maxlength="16" aria-label="프로젝트 이름" value="' + esc(p.name) + '"><button type="button" class="prensave" data-p="' + k + '">저장</button><button type="button" class="prencancel" data-p="' + k + '">취소</button>';
       else h += "<h3>" + esc(p.name) + "</h3>" + (can ? '<button type="button" class="mini prename" data-p="' + k + '">이름 바꾸기</button>' : "");

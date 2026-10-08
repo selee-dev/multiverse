@@ -44,11 +44,11 @@ function renderPick() {
   updatePickCount();
 }
 function renderMeets() {
-  var list = meetingList(), can = canManageSharedOperations(), byId = {}, h = "", act = 0;
+  var list = meetingList(), byId = {}, h = "", act = 0;
   DATA.forEach(function (d) { byId[jobId(d)] = d; });
   refreshForms();
   list.forEach(function (m) {
-    var names = m.m.filter(function (id) { return byId[id]; }).map(function (id) { return esc(byId[id].n); }), state2 = "대기";
+    var can = canManageGroup(m.m), names = m.m.filter(function (id) { return byId[id]; }).map(function (id) { return esc(byId[id].n); }), state2 = "대기";
     if (m.on) { act++; state2 = act > 3 ? "자리 없음" : "회의 중"; }
     h += '<article class="mcard' + (m.on && act <= 3 ? " on" : "") + '"><div class="mhead"><b>' + esc(m.t) + '</b><span class="mstate">' + state2 + "</span></div>" +
       '<p class="mnames">' + (names.length ? names.join(", ") : "참석자 없음") + " (" + names.length + "명)</p>" +

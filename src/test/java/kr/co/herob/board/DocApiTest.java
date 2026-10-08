@@ -244,6 +244,34 @@ class DocApiTest {
     }
 
     @Test
+    void 회의와_프로젝트는_참석자_인원만_수정_삭제할_수_있다() throws Exception {
+        MockHttpSession member = register(uniqueUser("grpmember"));
+        MockHttpSession outsider = register(uniqueUser("grpout"));
+        String memberId = json.readTree(mvc.perform(post("/api/characters").session(member)
+                .contentType(MediaType.APPLICATION_JSON).content("{\"n\":\"Grp\"}"))
+            .andExpect(status().isCreated()).andReturn().getResponse().getContentAsString()).get("id").asText();
+        String meeting = "{\"t\":\"sync\",\"m\":[\"" + memberId + "\"],\"on\":true,\"at\":1}";
+        // 새로 만드는 것은 누구나 가능
+        mvc.perform(put("/api/doc/meetings/mgrp1").session(member).contentType(MediaType.APPLICATION_JSON).content(meeting))
+            .andExpect(status().isNoContent());
+        mvc.perform(put("/api/doc/meetings/mgrp1").session(outsider).contentType(MediaType.APPLICATION_JSON).content(meeting))
+            .andExpect(status().isForbidden());
+        mvc.perform(delete("/api/doc/meetings/mgrp1").session(outsider)).andExpect(status().isForbidden());
+        mvc.perform(delete("/api/doc/meetings/mgrp1").session(member)).andExpect(status().isNoContent());
+
+        String project = "{\"name\":\"P\",\"members\":[{\"id\":\"" + memberId + "\",\"n\":\"Grp\",\"h\":true}]}";
+        mvc.perform(put("/api/doc/projects/p2").session(outsider).contentType(MediaType.APPLICATION_JSON)
+                .content("{\"name\":\"Q\",\"members\":[]}")).andExpect(status().isNoContent());
+        mvc.perform(delete("/api/doc/projects/p2").session(outsider)).andExpect(status().isNoContent());
+        mvc.perform(put("/api/doc/projects/p2").session(member).contentType(MediaType.APPLICATION_JSON).content(project))
+            .andExpect(status().isNoContent());
+        mvc.perform(put("/api/doc/projects/p2").session(outsider).contentType(MediaType.APPLICATION_JSON).content(project))
+            .andExpect(status().isForbidden());
+        mvc.perform(delete("/api/doc/projects/p2").session(outsider)).andExpect(status().isForbidden());
+        mvc.perform(delete("/api/doc/projects/p2").session(member)).andExpect(status().isNoContent());
+    }
+
+    @Test
     void 전체_문서_조회는_분당_한도를_넘으면_429() throws Exception {
         MockHttpSession session = register(uniqueUser("reader"));
         for (int i = 0; i < 60; i++) mvc.perform(get("/api/docs").session(session)).andExpect(status().isOk());

@@ -174,5 +174,7 @@ function tline(d) { var t = ttl(d); return t ? t + " · " : ""; }
 function ttl(d) { var t = store.titles[jobId(d)]; return t && typeof t.t === "string" && t.t ? t.t : d.t; }
 var RANKS = ["상무", "이사", "팀장", "부장", "차장", "과장", "대리", "주임", "사원"];
 function canEditJobs() { return !dbRef || currentRole === "ADMIN"; }
+/** 회의 참석자·프로젝트 인원(캐릭터 id 목록)이거나 관리자일 때만 수정·삭제할 수 있어요(인원이 비어 있으면 누구나) */
+function canManageGroup(ids) { return !dbRef || currentRole === "ADMIN" || !Array.isArray(ids) || !ids.length || (!!currentCharacterId && ids.indexOf(currentCharacterId) >= 0); }
 function canManageSharedOperations() { return !dbRef || !!currentUser; }
 function canEditCharacter(d) { return !dbRef || currentRole === "ADMIN" || !!(d && d.accountCharacter && d.id === currentCharacterId); }

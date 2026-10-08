@@ -102,8 +102,14 @@ class RealtimeTest {
         String username = prefix + UUID.randomUUID().toString().substring(0, 8);
         HttpResponse<String> reg = rawSend("POST", "/api/register", null,
             json.writeValueAsString(Map.of("username", username, "password", "pass1234")));
-        assertEquals(201, reg.statusCode());
-        String cookie = reg.headers().firstValue("Set-Cookie").orElseThrow().split(";")[0];
+        assertEquals(202, reg.statusCode());
+        HttpResponse<String> adminLogin = rawSend("POST", "/api/login", null, "{\"username\":\"admin\",\"password\":\"admin\"}");
+        Client admin = new Client(adminLogin.headers().firstValue("Set-Cookie").orElseThrow().split(";")[0], null, "admin");
+        assertEquals(204, rawSend("POST", "/api/admin/accounts/" + username + "/approve", admin, "{}").statusCode());
+        HttpResponse<String> login = rawSend("POST", "/api/login", null,
+            json.writeValueAsString(Map.of("username", username, "password", "pass1234")));
+        assertEquals(200, login.statusCode());
+        String cookie = login.headers().firstValue("Set-Cookie").orElseThrow().split(";")[0];
         Client temp = new Client(cookie, null, username);
         HttpResponse<String> created = rawSend("POST", "/api/characters", temp, "{\"n\":\"" + prefix + "\"}");
         assertEquals(201, created.statusCode());

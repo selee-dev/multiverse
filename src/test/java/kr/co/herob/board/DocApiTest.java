@@ -22,6 +22,7 @@ class DocApiTest {
 
     @Autowired MockMvc mvc;
     @Autowired ObjectMapper json;
+    @Autowired org.springframework.jdbc.core.JdbcTemplate jdbc;
 
     @Test
     void 관리자_로그인과_문서_저장_조회_삭제() throws Exception {
@@ -156,6 +157,59 @@ class DocApiTest {
     }
 
     @Test
+    void 가입은_승인_전에는_로그인할_수_없고_관리자가_승인하면_로그인된다() throws Exception {
+        String username = uniqueUser("pending");
+        mvc.perform(post("/api/register").contentType(MediaType.APPLICATION_JSON)
+                .content(json.writeValueAsString(java.util.Map.of("username", username, "password", "x"))))
+            .andExpect(status().isAccepted()).andExpect(jsonPath("$.status").value("PENDING"));
+        String body = json.writeValueAsString(java.util.Map.of("username", username, "password", "x"));
+        mvc.perform(post("/api/login").contentType(MediaType.APPLICATION_JSON).content(body))
+            .andExpect(status().isForbidden());
+
+        MockHttpSession admin = login("admin", "admin");
+        mvc.perform(get("/api/admin/accounts").session(admin))
+            .andExpect(status().isOk()).andExpect(jsonPath("$[?(@.username=='" + username + "')].status").value("PENDING"));
+        MockHttpSession normal = register(uniqueUser("normal"));
+        mvc.perform(post("/api/admin/accounts/" + username + "/approve").session(normal)).andExpect(status().isForbidden());
+        mvc.perform(post("/api/admin/accounts/" + username + "/approve").session(admin)).andExpect(status().isNoContent());
+        mvc.perform(post("/api/login").contentType(MediaType.APPLICATION_JSON).content(body)).andExpect(status().isOk());
+    }
+
+    @Test
+    void 가입_거절은_대기_계정만_삭제한다() throws Exception {
+        String username = uniqueUser("reject");
+        mvc.perform(post("/api/register").contentType(MediaType.APPLICATION_JSON)
+                .content(json.writeValueAsString(java.util.Map.of("username", username, "password", "x"))))
+            .andExpect(status().isAccepted());
+        MockHttpSession admin = login("admin", "admin");
+        mvc.perform(delete("/api/admin/accounts/" + username).session(admin)).andExpect(status().isNoContent());
+        mvc.perform(delete("/api/admin/accounts/" + username).session(admin)).andExpect(status().isNotFound());
+        String approved = uniqueUser("kept");
+        register(approved);
+        mvc.perform(delete("/api/admin/accounts/" + approved).session(admin)).andExpect(status().isNotFound());
+    }
+
+    @Test
+    void 캐릭터_목록은_관리자에게만_로그인_아이디를_보여준다() throws Exception {
+        String owner = uniqueUser("hidden");
+        MockHttpSession session = register(owner);
+        mvc.perform(post("/api/characters").session(session)
+                .contentType(MediaType.APPLICATION_JSON).content("{\"n\":\"Hidden\"}"))
+            .andExpect(status().isCreated());
+        mvc.perform(get("/api/characters").session(session))
+            .andExpect(status().isOk()).andExpect(jsonPath("$[?(@.ownerId)]").isEmpty());
+        mvc.perform(get("/api/characters").session(login("admin", "admin")))
+            .andExpect(status().isOk()).andExpect(jsonPath("$[?(@.ownerId=='" + owner + "')]").isNotEmpty());
+    }
+
+    @Test
+    void 전체_문서_조회는_분당_한도를_넘으면_429() throws Exception {
+        MockHttpSession session = register(uniqueUser("reader"));
+        for (int i = 0; i < 60; i++) mvc.perform(get("/api/docs").session(session)).andExpect(status().isOk());
+        mvc.perform(get("/api/docs").session(session)).andExpect(status().isTooManyRequests());
+    }
+
+    @Test
     void 공지는_팀장급만_작성하고_개인채팅은_참여자에게만_보인다() throws Exception {
         String sender = uniqueUser("sender");
         String recipient = uniqueUser("recipient");
@@ -246,11 +300,13 @@ class DocApiTest {
         return (MockHttpSession) result.getRequest().getSession(false);
     }
 
+    /** 가입(승인 대기) 후 관리자 승인을 DB로 반영하고 로그인한 세션을 반환합니다. */
     private MockHttpSession register(String username) throws Exception {
-        MvcResult result = mvc.perform(post("/api/register").contentType(MediaType.APPLICATION_JSON)
+        mvc.perform(post("/api/register").contentType(MediaType.APPLICATION_JSON)
                 .content(json.writeValueAsString(java.util.Map.of("username", username, "password", "pass1234"))))
-            .andExpect(status().isCreated()).andReturn();
-        return (MockHttpSession) result.getRequest().getSession(false);
+            .andExpect(status().isAccepted());
+        jdbc.update("UPDATE HERO_ACCOUNT SET STATUS = 'APPROVED' WHERE USERNAME = ?", username);
+        return login(username, "pass1234");
     }
 
     private String uniqueUser(String prefix) {

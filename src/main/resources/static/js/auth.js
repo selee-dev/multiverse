@@ -81,7 +81,7 @@
 
   registerForm.addEventListener("submit", function (event) {
     event.preventDefault();
-    showStatus("계정을 만드는 중...", false);
+    showStatus("가입 요청을 보내는 중...", false);
     var username = registerUsername.value.trim();
     checkUsername(username).then(function (result) {
       if (!result.available) throw new Error("이미 사용 중이거나 사용할 수 없는 아이디입니다.");
@@ -89,7 +89,11 @@
         username: username,
         password: document.getElementById("register-password").value
       });
-    }).then(function () { window.location.reload(); }, function (error) { showStatus(error.message, true); });
+    }).then(function () {
+      registerForm.reset();
+      showStage("login");
+      showStatus("가입 요청이 접수됐어요. 관리자 승인 후 로그인할 수 있어요.", false);
+    }, function (error) { showStatus(error.message, true); });
   });
 
   registerUsername.addEventListener("blur", function () {

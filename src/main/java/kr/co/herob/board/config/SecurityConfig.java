@@ -31,6 +31,8 @@ public class SecurityConfig {
             .csrf(AbstractHttpConfigurer::disable)
             .securityContext(context -> context.securityContextRepository(contextRepository))
             .authorizeHttpRequests(auth -> {
+                // SSE 종료 시의 비동기 재디스패치에서 인가를 다시 검사하면 이미 커밋된 응답에 AccessDenied가 기록됩니다.
+                auth.dispatcherTypeMatchers(jakarta.servlet.DispatcherType.ASYNC).permitAll();
                 // H2 콘솔은 명시적으로 켠 개발 환경에서만 공개합니다.
                 if (h2Console) auth.requestMatchers("/h2-console/**").permitAll();
                 auth

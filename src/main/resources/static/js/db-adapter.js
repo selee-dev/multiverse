@@ -205,6 +205,8 @@
       if (posSocket && posSocket.readyState === 1) posSocket.send(JSON.stringify({ id: id, x: x, y: y, w: w }));
     },
     adminAccounts: function () { return req("GET", API + "/admin/accounts"); },
+    approveAccount: function (username) { return req("POST", API + "/admin/accounts/" + encodeURIComponent(username) + "/approve"); },
+    rejectAccount: function (username) { return req("DELETE", API + "/admin/accounts/" + encodeURIComponent(username)); },
     createAdminCharacter: function (payload) {
       return req("POST", API + "/admin/characters", payload).then(function (character) {
         return pull().then(function () { return character; });

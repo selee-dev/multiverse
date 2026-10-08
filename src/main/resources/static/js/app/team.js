@@ -7,14 +7,24 @@ function renderAdminCharacterAccounts() {
   if (!form || !dbRef || currentRole !== "ADMIN" || adminAccountsLoaded) return;
   adminAccountsLoaded = true;
   dbRef.adminAccounts().then(function (accounts) {
-    var select = document.getElementById("admin-character-account");
-    select.innerHTML = (accounts || []).map(function (account) {
+    var select = document.getElementById("admin-character-account"), list = accounts || [];
+    var pending = list.filter(function (account) { return account.status === "PENDING"; });
+    document.getElementById("admin-pending").innerHTML = pending.map(function (account) {
+      return '<span class="jrow sacts"><b>' + esc(account.username) + '</b><button type="button" class="admin-approve" data-user="' + esc(account.username) + '">승인</button><button type="button" class="admin-reject sdel" data-user="' + esc(account.username) + '">거절</button></span>';
+    }).join("") || '<span class="tempty">승인 대기 중인 가입이 없습니다.</span>';
+    select.innerHTML = list.filter(function (account) { return account.status !== "PENDING"; }).map(function (account) {
       return '<option value="' + esc(account.username) + '">' + esc(account.username) + " · 캐릭터 " + account.characterCount + "개</option>";
     }).join("") || '<option value="">계정이 없습니다</option>';
   }, function () {
     adminAccountsLoaded = false;
     document.getElementById("admin-character-status").textContent = "계정 목록을 불러오지 못했습니다.";
   });
+}
+function decideAccount(button, approve) {
+  var status = document.getElementById("admin-character-status"), user = button.dataset.user;
+  (approve ? dbRef.approveAccount(user) : dbRef.rejectAccount(user)).then(function () {
+    status.textContent = user + (approve ? " 가입을 승인했습니다." : " 가입을 거절했습니다."); adminAccountsLoaded = false; renderAdminCharacterAccounts();
+  }, function () { status.textContent = "처리하지 못했습니다."; });
 }
 function createAdminCharacter() {
   var account = document.getElementById("admin-character-account").value;
@@ -84,6 +94,8 @@ function removePerson(id) {
 document.getElementById("teampane").addEventListener("click", function (e) {
   var b = e.target.closest(".tmdel");
   if (e.target.closest("#admin-character-create")) { createAdminCharacter(); return; }
+  var decide = e.target.closest(".admin-approve, .admin-reject");
+  if (decide) { decideAccount(decide, decide.classList.contains("admin-approve")); return; }
   if (e.target.closest("#tmadd")) { addPerson(); return; }
   if (b) {
     var member = DATA.find(function (d) { return d.id === b.dataset.id; });

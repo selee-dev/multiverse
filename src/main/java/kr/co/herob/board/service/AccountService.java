@@ -90,7 +90,7 @@ public class AccountService implements UserDetailsService {
         return "admin".equals(username) || adminUsername.equals(username);
     }
 
-    /** 입력값을 검증하고 일반 사용자 계정을 생성합니다. */
+    /** 입력값을 검증하고 관리자 승인 대기 상태의 일반 사용자 계정을 생성합니다. */
     public String register(String rawUsername, String password) {
         String username = normalizeUsername(rawUsername);
         if (!USERNAME.matcher(username).matches() || isReservedUsername(username)) {
@@ -100,8 +100,8 @@ public class AccountService implements UserDetailsService {
             throw new IllegalArgumentException("비밀번호를 입력해 주세요.");
         }
         try {
-            jdbc.update("INSERT INTO HERO_ACCOUNT (USERNAME, PASSWORD_HASH, ROLE_NAME) VALUES (?, ?, ?)",
-                username, passwordEncoder.encode(password), "USER");
+            jdbc.update("INSERT INTO HERO_ACCOUNT (USERNAME, PASSWORD_HASH, ROLE_NAME, STATUS) VALUES (?, ?, ?, ?)",
+                username, passwordEncoder.encode(password), "USER", "PENDING");
         } catch (DuplicateKeyException e) {
             throw new ResponseStatusException(HttpStatus.CONFLICT, "이미 사용 중인 아이디입니다.");
         }
@@ -137,11 +137,31 @@ public class AccountService implements UserDetailsService {
         return false;
     }
 
-    /** 계정 이름을 정규화해 수신자 계정이 실제로 존재하는지 확인합니다. */
+    /** 계정 이름을 정규화해 승인된 수신자 계정이 실제로 존재하는지 확인합니다. */
     public boolean accountExists(String username) {
         String normalized = normalizeUsername(username);
-        Integer count = jdbc.queryForObject("SELECT COUNT(*) FROM HERO_ACCOUNT WHERE USERNAME = ?", Integer.class, normalized);
+        Integer count = jdbc.queryForObject("SELECT COUNT(*) FROM HERO_ACCOUNT WHERE USERNAME = ? AND STATUS = 'APPROVED'",
+            Integer.class, normalized);
         return count != null && count > 0;
+    }
+
+    /** 가입이 승인된 계정인지 확인합니다. 승인 대기 중이거나 없는 계정이면 false입니다. */
+    public boolean isApproved(String username) {
+        Integer count = jdbc.queryForObject("SELECT COUNT(*) FROM HERO_ACCOUNT WHERE USERNAME = ? AND STATUS = 'APPROVED'",
+            Integer.class, normalizeUsername(username));
+        return count != null && count > 0;
+    }
+
+    /** 승인 대기 중인 계정을 승인합니다. 대기 계정이 아니면 false를 반환합니다. */
+    public boolean approve(String username) {
+        return jdbc.update("UPDATE HERO_ACCOUNT SET STATUS = 'APPROVED' WHERE USERNAME = ? AND STATUS = 'PENDING'",
+            normalizeUsername(username)) > 0;
+    }
+
+    /** 승인 대기 중인 계정만 삭제합니다. 승인된 계정은 지우지 않습니다. */
+    public boolean rejectPending(String username) {
+        return jdbc.update("DELETE FROM HERO_ACCOUNT WHERE USERNAME = ? AND STATUS = 'PENDING'",
+            normalizeUsername(username)) > 0;
     }
 
     /** 개인·그룹 채팅 연락처로 다른 모든 계정을 캐릭터 정보와 함께 조회합니다. */
@@ -164,12 +184,13 @@ public class AccountService implements UserDetailsService {
             + "FROM HERO_CHARACTER ORDER BY CREATED_AT, OWNER_ID", CHARACTER_ROW);
     }
 
-    /** 관리자 매핑 화면에 표시할 모든 계정과 캐릭터 수를 조회합니다. */
+    /** 관리자 화면에 표시할 모든 계정과 승인 상태, 캐릭터 수를 조회합니다. */
     public List<Map<String, Object>> adminAccounts() {
-        return jdbc.query("SELECT A.USERNAME, COUNT(C.CHARACTER_ID) AS CHARACTER_COUNT "
+        return jdbc.query("SELECT A.USERNAME, A.STATUS, COUNT(C.CHARACTER_ID) AS CHARACTER_COUNT "
                 + "FROM HERO_ACCOUNT A LEFT JOIN HERO_CHARACTER C ON C.OWNER_ID = A.USERNAME "
-                + "GROUP BY A.USERNAME ORDER BY A.USERNAME",
+                + "GROUP BY A.USERNAME, A.STATUS ORDER BY A.USERNAME",
             (rs, rowNum) -> Map.of("username", rs.getString("USERNAME"),
+                "status", rs.getString("STATUS"),
                 "characterCount", rs.getInt("CHARACTER_COUNT")));
     }
 

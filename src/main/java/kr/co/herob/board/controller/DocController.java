@@ -8,6 +8,7 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import kr.co.herob.board.service.AccountService;
+import kr.co.herob.board.service.AuditLog;
 import kr.co.herob.board.service.AuthService;
 import kr.co.herob.board.service.DocEventService;
 import kr.co.herob.board.service.DocService;
@@ -15,6 +16,7 @@ import kr.co.herob.board.service.HeroCharacter;
 import kr.co.herob.board.service.LoginAttemptService;
 import kr.co.herob.board.service.PositionService;
 import kr.co.herob.board.service.PrivateChatService;
+import kr.co.herob.board.service.ReadRateLimiter;
 import org.springframework.web.server.ResponseStatusException;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
@@ -45,11 +47,19 @@ public class DocController {
     private final PrivateChatService privateChats;
     private final LoginAttemptService loginAttempts;
     private final PositionService positions;
+    private final AuditLog audit;
+    private final ReadRateLimiter readLimiter;
+
+    /** 승인 대기 중인 계정이 올바른 비밀번호로 로그인을 시도했을 때 던집니다. */
+    private static class PendingApprovalException extends RuntimeException {}
 
     public DocController(DocService docs, AuthService auth, AccountService accounts,
                          AuthenticationManager authenticationManager, SecurityContextRepository contextRepository,
                          DocEventService events, PrivateChatService privateChats,
-                         LoginAttemptService loginAttempts, PositionService positions) {
+                         LoginAttemptService loginAttempts, PositionService positions,
+                         AuditLog audit, ReadRateLimiter readLimiter) {
+        this.audit = audit;
+        this.readLimiter = readLimiter;
         this.loginAttempts = loginAttempts;
         this.positions = positions;
         this.docs = docs;
@@ -76,18 +86,21 @@ public class DocController {
         return result;
     }
 
-    /** 새 일반 계정을 만들고 같은 요청에서 로그인 세션을 설정합니다. */
+    /** 승인 대기 상태의 일반 계정을 만듭니다. 로그인 세션은 만들지 않고 관리자 승인 후 로그인할 수 있습니다. */
     @PostMapping("/register")
-    public ResponseEntity<Map<String, Object>> register(@RequestBody Map<String, String> payload,
-                                                          HttpServletRequest request, HttpServletResponse response) {
+    public ResponseEntity<Map<String, Object>> register(@RequestBody Map<String, String> payload) {
         String username = accounts.register(payload.get("username"), payload.get("password"));
-        Authentication authenticated = authenticate(username, payload.get("password"), request, response);
-        return ResponseEntity.status(HttpStatus.CREATED).body(sessionInfo(authenticated));
+        audit.record("REGISTER", username, "PENDING");
+        return ResponseEntity.status(HttpStatus.ACCEPTED).body(Map.of("status", "PENDING", "user", username));
     }
 
     /** 회원가입 폼에서 아이디가 이미 사용 중인지 확인합니다. */
     @GetMapping("/register/username-available")
-    public Map<String, Boolean> usernameAvailable(@RequestParam String username) {
+    public Map<String, Boolean> usernameAvailable(@RequestParam String username, HttpServletRequest request) {
+        if (!readLimiter.allow("avail|" + request.getRemoteAddr(), 30, 60_000)) {
+            audit.record("RATE_LIMITED", null, "username-available");
+            throw new ResponseStatusException(HttpStatus.TOO_MANY_REQUESTS, "요청이 너무 많습니다. 잠시 후 다시 시도해 주세요.");
+        }
         return Map.of("available", accounts.isUsernameAvailable(username));
     }
 
@@ -100,15 +113,22 @@ public class DocController {
         if (username == null || password == null) throw new IllegalArgumentException("아이디와 비밀번호를 입력해 주세요.");
         String key = request.getRemoteAddr() + "|" + username.trim().toLowerCase(Locale.ROOT);
         if (loginAttempts.isLocked(key)) {
+            audit.record("LOGIN_LOCKED", username, null);
             throw new ResponseStatusException(HttpStatus.TOO_MANY_REQUESTS,
                 "로그인 시도가 너무 많습니다. 잠시 후 다시 시도해 주세요.");
         }
         try {
             Authentication authenticated = authenticate(username, password, request, response);
             loginAttempts.reset(key);
+            audit.record("LOGIN_OK", authenticated.getName(), null);
             return sessionInfo(authenticated);
+        } catch (PendingApprovalException e) {
+            loginAttempts.reset(key);
+            audit.record("LOGIN_PENDING", username, null);
+            throw e;
         } catch (AuthenticationException e) {
             loginAttempts.recordFailure(key);
+            audit.record("LOGIN_FAIL", username, null);
             throw e;
         }
     }
@@ -116,7 +136,10 @@ public class DocController {
     /** 등록된 캐릭터 목록을 반환합니다. */
     @GetMapping("/characters")
     public List<HeroCharacter> characters() {
-        return accounts.characters();
+        List<HeroCharacter> all = accounts.characters();
+        if (auth.isAdmin()) return all;
+        // 로그인 아이디(ownerId)는 관리자에게만 보여줍니다.
+        return all.stream().map(c -> new HeroCharacter(c.id(), null, c.n(), c.g(), c.t(), c.u(), c.c(), c.accountCharacter())).toList();
     }
 
     /** 관리자용 계정·캐릭터 매핑 목록을 반환합니다. */
@@ -126,6 +149,24 @@ public class DocController {
         return accounts.adminAccounts();
     }
 
+    /** 관리자가 가입 승인 대기 계정을 승인합니다. */
+    @PostMapping("/admin/accounts/{username}/approve")
+    public ResponseEntity<Void> approveAccount(@PathVariable String username) {
+        if (!auth.isAdmin()) throw new AccessDeniedException("관리자만 가입을 승인할 수 있습니다.");
+        if (!accounts.approve(username)) return ResponseEntity.notFound().build();
+        audit.record("APPROVE", auth.currentUser(), username);
+        return ResponseEntity.noContent().build();
+    }
+
+    /** 관리자가 가입 승인 대기 계정을 거절(삭제)합니다. 승인된 계정은 삭제되지 않습니다. */
+    @DeleteMapping("/admin/accounts/{username}")
+    public ResponseEntity<Void> rejectAccount(@PathVariable String username) {
+        if (!auth.isAdmin()) throw new AccessDeniedException("관리자만 가입을 거절할 수 있습니다.");
+        if (!accounts.rejectPending(username)) return ResponseEntity.notFound().build();
+        audit.record("REJECT", auth.currentUser(), username);
+        return ResponseEntity.noContent().build();
+    }
+
     /** 관리자가 지정한 계정에 캐릭터를 추가합니다. */
     @PostMapping("/admin/characters")
     public ResponseEntity<HeroCharacter> createAdminCharacter(@RequestBody Map<String, String> payload) {
@@ -133,6 +174,7 @@ public class DocController {
         String owner = payload.get("username");
         if (!accounts.accountExists(owner)) throw new IllegalArgumentException("계정을 찾을 수 없습니다.");
         HeroCharacter character = accounts.createCharacter(owner, true, payload);
+        audit.record("ADMIN_CHARACTER", auth.currentUser(), owner);
         events.emitRefresh();
         return ResponseEntity.status(HttpStatus.CREATED).body(character);
     }
@@ -183,6 +225,12 @@ public class DocController {
     /** 저장된 전체 문서를 컬렉션별 JSON 객체로 반환합니다. */
     @GetMapping("/docs")
     public JsonNode all() {
+        String user = auth.currentUser();
+        if (!readLimiter.allow("docs|" + user, 60, 60_000)) {
+            audit.record("RATE_LIMITED", user, "docs");
+            throw new ResponseStatusException(HttpStatus.TOO_MANY_REQUESTS, "조회 요청이 너무 많습니다. 잠시 후 다시 시도해 주세요.");
+        }
+        audit.record("DOCS_READ", user, null);
         return docs.findAll();
     }
 
@@ -200,7 +248,10 @@ public class DocController {
     /** 권한을 확인한 뒤 문서를 저장하고 구독자에게 변경을 알립니다. */
     @PutMapping("/doc/{col}/{id}")
     public ResponseEntity<Void> put(@PathVariable String col, @PathVariable String id, @RequestBody JsonNode body) {
-        if (!auth.canWriteDocument(col, id)) return ResponseEntity.status(HttpStatus.FORBIDDEN).build();
+        if (!auth.canWriteDocument(col, id)) {
+            audit.record("FORBIDDEN", auth.currentUser(), col + "/" + id);
+            return ResponseEntity.status(HttpStatus.FORBIDDEN).build();
+        }
         docs.save(col, id, body);
         emitDocChange("set", col, id, body);
         return ResponseEntity.noContent().build();
@@ -219,7 +270,10 @@ public class DocController {
     /** 권한을 확인한 뒤 문서를 삭제하고 구독자에게 변경을 알립니다. */
     @DeleteMapping("/doc/{col}/{id}")
     public ResponseEntity<Void> delete(@PathVariable String col, @PathVariable String id) {
-        if (!auth.canWriteDocument(col, id)) return ResponseEntity.status(HttpStatus.FORBIDDEN).build();
+        if (!auth.canWriteDocument(col, id)) {
+            audit.record("FORBIDDEN", auth.currentUser(), col + "/" + id);
+            return ResponseEntity.status(HttpStatus.FORBIDDEN).build();
+        }
         docs.remove(col, id);
         emitDocChange("delete", col, id, null);
         return ResponseEntity.noContent().build();
@@ -244,14 +298,21 @@ public class DocController {
         return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(Map.of("error", "아이디 또는 비밀번호를 확인해 주세요."));
     }
 
+    @ExceptionHandler(PendingApprovalException.class)
+    public ResponseEntity<Map<String, String>> pending(PendingApprovalException e) {
+        return ResponseEntity.status(HttpStatus.FORBIDDEN).body(Map.of("error", "관리자 승인 대기 중입니다. 승인 후 로그인할 수 있어요."));
+    }
+
     @ExceptionHandler(AccessDeniedException.class)
     public ResponseEntity<Map<String, String>> forbidden(AccessDeniedException e) {
+        audit.record("FORBIDDEN", auth.currentUser(), e.getMessage());
         return ResponseEntity.status(HttpStatus.FORBIDDEN).body(Map.of("error", "이 작업을 수행할 권한이 없습니다."));
     }
 
     private Authentication authenticate(String username, String password, HttpServletRequest request, HttpServletResponse response) {
         Authentication authenticated = authenticationManager.authenticate(
             new UsernamePasswordAuthenticationToken(username, password));
+        if (!accounts.isApproved(authenticated.getName())) throw new PendingApprovalException();
         request.getSession(true);
         request.changeSessionId();
         SecurityContext context = SecurityContextHolder.createEmptyContext();

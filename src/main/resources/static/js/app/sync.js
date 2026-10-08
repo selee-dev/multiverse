@@ -16,6 +16,7 @@ if (window.claude && window.claude.use) {
       var m = {};
       snap.docs.forEach(function (doc) { var value = doc.data(); if (value && Array.isArray(value.participants)) m[doc.id] = value; });
       store.privateChats = m;
+      tabIncoming("p");
       if (state.view === "chat" && chatMode === "private") renderPrivateChat();
       else updatePrivateBadge();
       renderPlazaLog();
@@ -30,6 +31,7 @@ if (window.claude && window.claude.use) {
       var m = {};
       snap.docs.forEach(function (doc) { var v = doc.data(); if (v && typeof v.p === "string" && typeof v.t === "string" && typeof v.at === "number") m[doc.id] = { p: v.p, t: v.t.slice(0, 100), at: v.at }; });
       store.saylog = m;
+      tabIncoming("s");
       renderPlazaLog();
     }, function () {});
     var loaded = { tasks: false, meetings: false, projects: false, chat: false, seats: false, people: false };
@@ -106,6 +108,7 @@ if (window.claude && window.claude.use) {
       var m = {};
       snap.docs.forEach(function (x) { var v = x.data(); if (v && typeof v.p === "string" && typeof v.t === "string") m[x.id] = { p: v.p, t: v.t.slice(0, 200), at: +v.at || 0 }; });
       store.chat = m; loaded.chat = true;
+      tabIncoming("n");
       if (state.view === "chat") { renderChat(); markSeen(); } else updateBadge();
     }, function () {});
     db.collection("cfg").onSnapshot(function (snap) {

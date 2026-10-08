@@ -290,8 +290,8 @@ h1 em { font-style: normal; color: var(--gold); }
 
 .snk { font-size: 12px; color: var(--gold); margin-top: 4px; overflow-wrap: anywhere; }
 .snkline { font-size: 13px; color: var(--gold); margin: -6px 0 14px; }
-.sk-team, .sk-item { min-height: 30px; background: var(--panel-2); border: 1px solid var(--line); border-radius: 999px; padding: 3px 11px; font-size: 12.5px; }
-.sk-team[aria-pressed="true"], .sk-item[aria-pressed="true"] { border-color: var(--gold); color: var(--gold); background: color-mix(in srgb, var(--gold) 12%, var(--panel-2)); }
+.sk-team { min-height: 30px; background: var(--panel-2); border: 1px solid var(--line); border-radius: 999px; padding: 3px 11px; font-size: 12.5px; }
+.sk-team[aria-pressed="true"] { border-color: var(--gold); color: var(--gold); background: color-mix(in srgb, var(--gold) 12%, var(--panel-2)); }
 .sk-team { border-left: 3px solid var(--c, var(--muted)); }
 .scard .sst { margin-left: auto; font-size: 11.5px; font-weight: 700; color: var(--muted); border: 1px solid var(--line); border-radius: 999px; padding: 1px 9px; }
 .scard.on { border-color: var(--gold); }
@@ -639,3 +639,11 @@ html:not(.booting) .boot-loader { display: none; }
 :root[data-world-theme="office"] .plaza-chat .mlabel { color: #f3d9a8; font-weight: 700; font-size: 12px; }
 :root[data-world-theme="office"] .plaza-head { border-bottom-color: color-mix(in srgb, #f3d9a8 40%, transparent); }
 .plaza-search { width: 100%; min-width: 0; box-sizing: border-box; min-height: 30px; padding: 5px 10px; border: 1px solid var(--line); border-radius: 8px; background: var(--bg); color: var(--text); font: inherit; font-size: 12.5px; }
+.sacts { gap: 6px; }
+.sacts button { flex: 0 0 auto; min-height: 26px; padding: 2px 10px; font-size: 12px; }
+#steams { display: flex; flex-direction: column; gap: 6px; }
+.snack-manual { margin: 12px 0 8px; }
+.snack-manual a { color: var(--gold); }
+.jrow.sacts { align-items: center; }
+.jrow.sacts button { height: 26px; min-height: 0; padding: 0 10px; line-height: 1; }
+.jrow.sacts button.sedit { display: inline-block; margin: 0; }

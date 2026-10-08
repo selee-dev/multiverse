@@ -424,7 +424,7 @@ function renderPortals() {
     if (!n && state.uni !== k) return;
     html += '<button type="button" class="portal" data-u="' + k + '" style="--c:' + u.color + '" aria-pressed="' + (state.uni === k) + '">' +
       '<span class="realm">' + esc(SIDE[u.side].name) + '</span><span class="pname">' + esc(u.name) + '</span>' +
-      '<span class="pdesc">' + esc(u.desc) + '</span>' + (sn[k] ? '<span class="snk">🍪 간식 당번 · ~' + md(sn[k].to) + " · " + esc(sn[k].items.join(", ")) + "</span>" : "") + '<span class="pcount">' + n + '명' + (invCount[k] ? '<span class="inv">침입 ' + invCount[k] + "</span>" : "") + "</span></button>";
+      '<span class="pdesc">' + esc(u.desc) + '</span>' + (sn[k] ? '<span class="snk">🍪 간식 당번 · ~' + md(sn[k].to) + (sn[k].items.length ? " · " + esc(sn[k].items.join(", ")) : "") + "</span>" : "") + '<span class="pcount">' + n + '명' + (invCount[k] ? '<span class="inv">침입 ' + invCount[k] + "</span>" : "") + "</span></button>";
   });
   document.getElementById("portals").innerHTML = html;
   document.getElementById("all").setAttribute("aria-pressed", String(!state.uni));
@@ -480,7 +480,7 @@ function openSheet(i, opener) {
       '<div class="eg"><span class="egl">근무</span>' + (d.off ? "" : '<button type="button" class="mini editatt">근태</button>') + '<button type="button" class="mini editpres">상태</button><button type="button" class="mini editseat">자리</button></div>' +
       (d.ext ? "" : '<div class="eg"><span class="egl">소속</span><button type="button" class="mini editmove">전출</button></div>') + "</div>" : "") +
     '<div class="attline' + (off ? " off" : "") + '">근태 · ' + esc(attText(d)) + "</div>" +
-    (snackNow()[uOf(d)] ? '<div class="snkline">🍪 우리 팀 간식 당번 · ~' + md(snackNow()[uOf(d)].to) + " · " + esc(snackNow()[uOf(d)].items.join(", ")) + "</div>" : "") +
+    (snackNow()[uOf(d)] ? '<div class="snkline">🍪 우리 팀 간식 당번 · ~' + md(snackNow()[uOf(d)].to) + (snackNow()[uOf(d)].items.length ? " · " + esc(snackNow()[uOf(d)].items.join(", ")) : "") + "</div>" : "") +
     (canEdit ? jobEditor(d) + nickEditor(d) + titleEditor(d) + skillEditor(d) + statEditor(d) + healthEditor(d) + presEditor(d) + attEditor(d) + (d.ext ? "" : moveEditor(d)) + seatEditor(d) : "") +
     '<div class="tasks"><div class="mlabel">맡은 업무<b id="tcount"></b></div><ul class="tlist" id="tlist"></ul>' +
     (canEdit ? '<div class="jrow"><input id="tin" type="text" maxlength="60" placeholder="업무 추가 (Enter)" aria-label="업무 내용"><input id="tdue" class="tdue-in" type="date" min="' + todayStr() + '" aria-label="마감 기한 (선택)" title="마감 기한 (선택)"><button type="button" class="tadd">추가</button></div>' : "") +

@@ -151,12 +151,10 @@
     <div class="pform">
       <div class="mlabel">담당팀</div><div class="recs" id="steams"></div>
       <div class="jrow dates"><label class="dl">시작 <input id="sfrom" type="date"></label><label class="dl">종료 <input id="sto" type="date"></label></div>
-      <div class="mlabel" style="margin-top:12px">먹을거리 <span id="sfc"></span></div>
-      <div class="recs" id="sfoods"></div>
-      <div class="jrow"><input id="sfree" type="text" maxlength="10" placeholder="직접 입력 (예: 마카롱)" aria-label="먹을거리 직접 입력"><button type="button" id="sfreeadd">추가</button></div>
       <div class="jrow" style="margin-top:10px"><button type="button" id="ssave" class="jsave">간식 당번 등록</button><button type="button" id="scancel" hidden>수정 취소</button></div>
       <div class="jstatus" id="sstatus" role="status"></div>
     </div>
+    <div class="mlabel snack-manual">간식주문매뉴얼 · <a href="https://snackmng.onrender.com" target="_blank" rel="noopener noreferrer">snackmng.onrender.com</a></div>
     <div class="mlist" id="slist"></div>
   </section>
 
@@ -195,6 +193,8 @@
     <p id="team-guide" class="copy-text"></p>
     <p class="tempty copy-text" id="teamnote" hidden></p>
     <div class="pform admin-character-form" id="admin-character-form" hidden>
+      <div class="mlabel">관리자 · 가입 승인 대기</div>
+      <div id="admin-pending" class="recs"></div>
       <div class="mlabel">관리자 · 계정에 캐릭터 매핑</div>
       <div class="jrow"><select id="admin-character-account" aria-label="캐릭터를 연결할 계정"></select><input id="admin-character-name" type="text" maxlength="30" placeholder="캐릭터 이름" aria-label="캐릭터 이름"><select id="admin-character-universe" aria-label="캐릭터 유니버스"><option value="member">프론트 회원</option><option value="order">프론트 주문</option><option value="display">프론트 전시</option><option value="broadcast">프론트 알림</option><option value="curation">프론트 큐레이션</option><option value="fgen">프론트</option><option value="bord">백오피스 주문</option><option value="bprod">백오피스 상품</option><option value="blog">백오피스 물류</option><option value="bsettle">백오피스 정산</option><option value="bgen">백오피스</option></select><button type="button" id="admin-character-create" class="jsave">캐릭터 생성</button></div>
       <div class="jstatus" id="admin-character-status" role="status"></div>

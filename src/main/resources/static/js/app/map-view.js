@@ -177,7 +177,7 @@ function draw() {
     drawMonitor(s, s.kind === "pc" || sit);
     if (sit) mctx.drawImage(spr[w.i][off ? 1 : 0][0], 0, 0, CW, 32, s.x, s.y, CW, 32);
     drawDesk(s, tint, s.kind === "pc");
-    if (d && sn[uOf(d)] && !off) { var its = sn[uOf(d)].items; mctx.drawImage(foodIcon(its[s.idx % its.length]), s.cx + 24, s.ry + 44); }
+    if (d && sn[uOf(d)] && !off) { var its = sn[uOf(d)].items; if (its.length) mctx.drawImage(foodIcon(its[s.idx % its.length]), s.cx + 24, s.ry + 44); }
     if (d && pidCount[nm]) {
       var t = "침입 " + pidCount[nm];
       mctx.font = "700 10px 'Apple SD Gothic Neo','Malgun Gothic','Noto Sans KR',sans-serif"; mctx.textAlign = "left";
@@ -338,7 +338,7 @@ mapEl.addEventListener("mousemove", function (ev) {
     tip.innerHTML = "<b>내 지정 좌석</b> · 클릭하여 원래 자리로 돌아가요";
   } else if (h) {
     var d = DATA[h.i], sk = snackNow()[uOf(d)];
-    tip.innerHTML = "<b>" + nameHtml(d.n) + "</b>" + (ttl(d) ? " · " + esc(ttl(d)) : "") + "<br>" + esc(job(d)) + (onLeave(d) ? "<br>" + esc(offLabel(d)) : "") + (h.seat && !h.route.length ? "<br>회의 중" : "") + (h.mode === "away" ? "<br>" + (h.tag === "lunch" ? "점심 중" : h.tag === "break" ? "휴식 중" : "자리비움") : "") + (openTasks(d).length ? "<br>맡은 업무 " + openTasks(d).length + "건" : "") + (sk ? "<br>간식 당번 · " + esc(sk.items.join(", ")) : "");
+    tip.innerHTML = "<b>" + nameHtml(d.n) + "</b>" + (ttl(d) ? " · " + esc(ttl(d)) : "") + "<br>" + esc(job(d)) + (onLeave(d) ? "<br>" + esc(offLabel(d)) : "") + (h.seat && !h.route.length ? "<br>회의 중" : "") + (h.mode === "away" ? "<br>" + (h.tag === "lunch" ? "점심 중" : h.tag === "break" ? "휴식 중" : "자리비움") : "") + (openTasks(d).length ? "<br>맡은 업무 " + openTasks(d).length + "건" : "") + (sk ? "<br>간식 당번" + (sk.items.length ? " · " + esc(sk.items.join(", ")) : "") : "");
   } else if (hi) {
     var pi = indexOfId(hi.pid);
     tip.innerHTML = "<b>침입자</b> · " + esc(hi.text) + "<br>담당 " + (pi >= 0 ? esc(DATA[pi].n) : "") + " · 누르면 업무 목록이 열려요";
@@ -346,7 +346,7 @@ mapEl.addEventListener("mousemove", function (ev) {
     var sh = snackHit(ev);
     if (!sh) { tip.hidden = true; return; }
     mapEl.style.cursor = "pointer";
-    tip.innerHTML = "<b>간식 당번</b> · " + esc(UNI[sh.u].realm) + " (~" + md(sh.info.to) + ")<br>" + esc(sh.info.items.join(", "));
+    tip.innerHTML = "<b>간식 당번</b> · " + esc(UNI[sh.u].realm) + " (~" + md(sh.info.to) + ")" + (sh.info.items.length ? "<br>" + esc(sh.info.items.join(", ")) : "");
   }
   tip.style.left = (ev.clientX - br.left) + "px"; tip.style.top = (ev.clientY - br.top - 10) + "px";
   tip.hidden = false;

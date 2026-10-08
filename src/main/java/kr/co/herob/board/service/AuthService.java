@@ -49,6 +49,11 @@ public class AuthService {
         if (isAdmin()) return true;
         String username = currentUser();
         if ("chat".equals(collection)) return username != null && accounts.hasAnnouncementRank(username);
+        // 광장 대화 기록은 "<캐릭터id>_<시각>" 형식 id의 앞부분 캐릭터를 본인이 소유할 때만 쓸 수 있습니다.
+        if ("saylog".equals(collection)) {
+            int cut = id == null ? -1 : id.indexOf('_');
+            return username != null && cut > 0 && accounts.ownsCharacter(username, id.substring(0, cut));
+        }
         return username != null && (SHARED_OPERATION_COLLECTIONS.contains(collection)
             || CHARACTER_COLLECTIONS.contains(collection) && accounts.ownsCharacter(username, id));
     }

@@ -51,7 +51,7 @@ function hash(str) { var h = 2166136261; for (var i = 0; i < str.length; i++) { 
 function rng(seed) { var a = seed; return function () { a |= 0; a = a + 0x6D2B79F5 | 0; var t = Math.imul(a ^ a >>> 15, 1 | a); t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t; return ((t ^ t >>> 14) >>> 0) / 4294967296; }; }
 var INVCAP = 14;
 var PSLOTS = ["p1", "p2", "p3"];
-var store = { tasks: {}, meetings: {}, projects: {}, titles: {}, snacks: {}, stats: {}, health: {}, chat: {}, privateChats: {}, say: {}, pres: {}, skills: {}, nicks: {}, cfg: {}, ot: {}, seats: {}, people: {}, pos: {} };
+var store = { tasks: {}, meetings: {}, projects: {}, titles: {}, snacks: {}, stats: {}, health: {}, chat: {}, privateChats: {}, say: {}, saylog: {}, pres: {}, skills: {}, nicks: {}, cfg: {}, ot: {}, seats: {}, people: {}, pos: {} };
 var intr = [], invCount = {};
 Object.keys(store).forEach(function (c) { try { var raw = localStorage.getItem("ops-" + c); if (raw) { var o = JSON.parse(raw); store[c] = o && typeof o === "object" && !Array.isArray(o) ? o : {}; } } catch (e) { store[c] = {}; } });
 function makeExt(m, k) {
@@ -70,12 +70,14 @@ function makeMember(m) {
 }
 function extendData() {
   DATA.length = 0;
-  peopleList().forEach(function (m) { DATA.push(makeMember(m)); });
+  var heroIds = {};
+  peopleList().forEach(function (m) { DATA.push(makeMember(m)); heroIds[m.id] = true; });
   PSLOTS.forEach(function (k) {
     var p = store.projects[k], u = UNI[k];
     if (p && typeof p.name === "string") {
       u.hidden = false; u.name = p.name; u.realm = p.name;
-      (Array.isArray(p.members) ? p.members : []).forEach(function (m) { if (m && typeof m.id === "string" && typeof m.n === "string") DATA.push(makeExt(m, k)); });
+      /* 기존 직원을 합류시킨 항목(h)이나 직원 id와 같은 항목은 같은 캐릭터라서 따로 만들지 않아요 */
+      (Array.isArray(p.members) ? p.members : []).forEach(function (m) { if (m && typeof m.id === "string" && typeof m.n === "string" && !heroIds[m.id] && m.h !== true) DATA.push(makeExt(m, k)); });
     } else { u.hidden = true; u.name = "빈 용병 진영"; u.realm = "빈 용병 진영"; }
   });
   DATA.forEach(function (d) {
@@ -111,6 +113,7 @@ function isGone(d, now) { return nowMin(now) >= hmMin(cfg().oe) && !isOT(d); }
 function shouldSitAtDesk(d, now) {
   now = now || Date.now();
   if (WORLD_THEME !== "office") return false;
+  if (PSLOTS.indexOf(uOf(d)) >= 0) { var ps = store.seats[jobId(d)]; if (!(ps && ps.override === true && typeof ps.s === "number")) return false; }   // 프로젝트 존 소속은 지정 좌석이 있을 때만 자리에 앉아요
   if (WORLD_THEME === "office" && bossVisitOn()) return !onLeave(d) && !isGone(d, now) && (!presenceOf(d, now) || presenceOf(d, now) === "lunch") && !inActiveMeeting(d);
   var minute = nowMin(now), end = hmMin(cfg().oe);
   var working = !presenceOf(d, now) || presenceOf(d, now) === "lunch";

@@ -203,6 +203,47 @@ class DocApiTest {
     }
 
     @Test
+    void 광장_대화_기록은_본인_캐릭터_id로만_쓰고_오래된_것부터_정리된다() throws Exception {
+        MockHttpSession me = register(uniqueUser("sayer"));
+        MockHttpSession other = register(uniqueUser("sayother"));
+        String myId = json.readTree(mvc.perform(post("/api/characters").session(me)
+                .contentType(MediaType.APPLICATION_JSON).content("{\"n\":\"Sayer\"}"))
+            .andExpect(status().isCreated()).andReturn().getResponse().getContentAsString()).get("id").asText();
+        String body = "{\"p\":\"" + myId + "\",\"t\":\"hi\",\"at\":1}";
+        mvc.perform(put("/api/doc/saylog/" + myId + "_1").session(me).contentType(MediaType.APPLICATION_JSON).content(body))
+            .andExpect(status().isNoContent());
+        mvc.perform(put("/api/doc/saylog/" + myId + "_2").session(other).contentType(MediaType.APPLICATION_JSON).content(body))
+            .andExpect(status().isForbidden());
+        mvc.perform(put("/api/doc/saylog/nounderscore").session(me).contentType(MediaType.APPLICATION_JSON).content(body))
+            .andExpect(status().isForbidden());
+        for (int i = 2; i < 305; i++) {
+            mvc.perform(put("/api/doc/saylog/" + myId + "_" + i).session(me).contentType(MediaType.APPLICATION_JSON)
+                    .content("{\"p\":\"" + myId + "\",\"t\":\"m" + i + "\",\"at\":" + i + "}"))
+                .andExpect(status().isNoContent());
+        }
+        Integer count = jdbc.queryForObject("SELECT COUNT(*) FROM HERO_DOC WHERE COL_NAME = 'saylog'", Integer.class);
+        org.junit.jupiter.api.Assertions.assertEquals(300, count);
+        mvc.perform(get("/api/docs").session(me)).andExpect(status().isOk())
+            .andExpect(jsonPath("$.saylog." + myId + "_1").doesNotExist());
+    }
+
+    @Test
+    void 프로젝트_인원은_등록된_직원만_추가할_수_있다() throws Exception {
+        MockHttpSession admin = login("admin", "admin");
+        MockHttpSession me = register(uniqueUser("proj"));
+        String myId = json.readTree(mvc.perform(post("/api/characters").session(me)
+                .contentType(MediaType.APPLICATION_JSON).content("{\"n\":\"Proj\"}"))
+            .andExpect(status().isCreated()).andReturn().getResponse().getContentAsString()).get("id").asText();
+        mvc.perform(put("/api/doc/projects/p1").session(me).contentType(MediaType.APPLICATION_JSON)
+                .content("{\"name\":\"A\",\"members\":[{\"id\":\"" + myId + "\",\"n\":\"Proj\",\"h\":true}]}"))
+            .andExpect(status().isNoContent());
+        mvc.perform(put("/api/doc/projects/p1").session(me).contentType(MediaType.APPLICATION_JSON)
+                .content("{\"name\":\"A\",\"members\":[{\"id\":\"xfake\",\"n\":\"Ghost\"}]}"))
+            .andExpect(status().isBadRequest());
+        mvc.perform(delete("/api/doc/projects/p1").session(admin)).andExpect(status().isNoContent());
+    }
+
+    @Test
     void 전체_문서_조회는_분당_한도를_넘으면_429() throws Exception {
         MockHttpSession session = register(uniqueUser("reader"));
         for (int i = 0; i < 60; i++) mvc.perform(get("/api/docs").session(session)).andExpect(status().isOk());

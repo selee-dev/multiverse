@@ -245,7 +245,9 @@ function renderPlazaLog() {
   var el = document.getElementById("plaza-log"), items = [], h, group = plazaTo.indexOf("|") >= 0, room;
   if (!el) return;
   if (!plazaTo) {
-    Object.keys(store.say).forEach(function (id) { var s = store.say[id]; items.push({ at: s.at, who: characterName(id), text: s.t, mine: id === currentCharacterId }); });
+    var seen = {};
+    Object.keys(store.saylog || {}).forEach(function (id) { var s = store.saylog[id]; seen[s.p + "|" + s.at] = 1; items.push({ at: s.at, who: characterName(s.p), text: s.t, mine: s.p === currentCharacterId }); });
+    Object.keys(store.say).forEach(function (id) { var s = store.say[id]; if (!seen[id + "|" + s.at]) items.push({ at: s.at, who: characterName(id), text: s.t, mine: id === currentCharacterId }); });
   } else {
     room = roomByKey(plazaTo);
     (room ? room.messages : []).forEach(function (m) {
@@ -269,8 +271,10 @@ function sendPlazaChat() {
     run: function (text) {
       if (to) return dbRef.sendPrivateMessage(to.split("|"), text.slice(0, 500));
       var doc = { t: text.slice(0, 100), at: Date.now() };
+      var logId = currentCharacterId + "_" + doc.at.toString(36);
       store.say[currentCharacterId] = doc;
-      return dbRef.doc("say/" + currentCharacterId).set(doc);
+      store.saylog[logId] = { p: currentCharacterId, t: doc.t, at: doc.at };
+      return Promise.all([dbRef.doc("say/" + currentCharacterId).set(doc), dbRef.doc("saylog/" + logId).set({ p: currentCharacterId, t: doc.t, at: doc.at })]);
     },
     fail: to ? "메시지를 보내지 못했습니다. 대화 상대를 확인해 주세요." : "메시지를 보내지 못했습니다.",
     done: renderPlazaLog

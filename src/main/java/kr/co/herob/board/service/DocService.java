@@ -19,10 +19,12 @@ public class DocService {
     /** 화면(js/app/*.js)이 쓰는 컬렉션 이름. 목록에 없는 이름은 거부합니다. */
     public static final Set<String> COLLECTIONS = Set.of(
         "people", "nicks", "titles", "skills", "stats", "health", "tasks", "pres", "ot", "seats",
-        "meetings", "projects", "snacks", "chat", "cfg", "jobs", "moves", "status", "say");
+        "meetings", "projects", "snacks", "chat", "cfg", "jobs", "moves", "status", "say", "saylog");
 
     private static final Pattern ID = Pattern.compile("[A-Za-z0-9_-]{1,60}");
     private static final int MAX_BODY = 100_000;
+    /** 광장 공개 대화 기록(saylog)은 최근 이 개수만 남기고 오래된 것부터 지웁니다. */
+    private static final int MAX_SAYLOG = 300;
 
     private final DocMapper mapper;
     private final AccountService accounts;
@@ -85,9 +87,55 @@ public class DocService {
     public void save(String col, String id, JsonNode body) {
         check(col, id);
         if (body == null || !body.isObject()) throw new IllegalArgumentException("본문은 JSON 객체여야 합니다.");
+        if ("projects".equals(col)) checkProjectMembers(id, body);
         String text = body.toString();
         if (text.length() > MAX_BODY) throw new IllegalArgumentException("본문이 너무 큽니다.");
         if (mapper.update(col, id, text) == 0) mapper.insert(col, id, text);
+        if ("saylog".equals(col)) pruneSaylog();
+    }
+
+    /** 프로젝트에 새로 들어가는 인원은 현재 등록된 직원(계정 캐릭터 또는 명단)이어야 합니다. 이미 들어 있던 인원은 그대로 둘 수 있습니다. */
+    private void checkProjectMembers(String id, JsonNode body) {
+        JsonNode members = body.path("members");
+        if (!members.isArray() || members.isEmpty()) return;
+        java.util.Set<String> allowed = new java.util.HashSet<>();
+        accounts.characters().forEach(c -> allowed.add(c.id()));
+        for (DocRow row : mapper.selectByCollection("people")) {
+            if (!"main".equals(row.id())) continue;
+            try {
+                json.readTree(row.body()).path("list").forEach(m -> allowed.add(m.path("id").asText()));
+            } catch (JsonProcessingException ignore) {
+                // 깨진 명단은 허용 목록에 넣지 않습니다.
+            }
+        }
+        for (DocRow row : mapper.selectByCollection("projects")) {
+            if (!id.equals(row.id())) continue;
+            try {
+                json.readTree(row.body()).path("members").forEach(m -> allowed.add(m.path("id").asText()));
+            } catch (JsonProcessingException ignore) {
+                // 깨진 기존 문서는 무시합니다.
+            }
+        }
+        for (JsonNode member : members) {
+            if (!allowed.contains(member.path("id").asText())) {
+                throw new IllegalArgumentException("프로젝트 인원은 등록된 직원 명단에서만 추가할 수 있습니다.");
+            }
+        }
+    }
+
+    private void pruneSaylog() {
+        List<DocRow> rows = new java.util.ArrayList<>(mapper.selectByCollection("saylog"));
+        if (rows.size() <= MAX_SAYLOG) return;
+        rows.sort(java.util.Comparator.comparingLong(this::sayAt));
+        for (DocRow row : rows.subList(0, rows.size() - MAX_SAYLOG)) mapper.delete("saylog", row.id());
+    }
+
+    private long sayAt(DocRow row) {
+        try {
+            return json.readTree(row.body()).path("at").asLong();
+        } catch (JsonProcessingException e) {
+            return 0L;
+        }
     }
 
     /** 공용 설정의 사장님 방문 상태만 갱신하고 나머지 설정은 보존합니다. */

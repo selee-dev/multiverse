@@ -478,10 +478,10 @@ function openSheet(i, opener) {
     (canEdit ? '<div class="sedit" role="group" aria-label="캐릭터 편집">' +
       '<div class="eg"><span class="egl">프로필</span><button type="button" class="mini editnick">닉네임</button><button type="button" class="mini editjob">직업</button><button type="button" class="mini edittitle">직급</button><button type="button" class="mini editskill">스킬</button><button type="button" class="mini editstat">스탯</button><button type="button" class="mini edithp">체력</button></div>' +
       '<div class="eg"><span class="egl">근무</span>' + (d.off ? "" : '<button type="button" class="mini editatt">근태</button>') + '<button type="button" class="mini editpres">상태</button><button type="button" class="mini editseat">자리</button></div>' +
-      (d.ext ? "" : '<div class="eg"><span class="egl">소속</span><button type="button" class="mini editmove">전출</button></div>') + "</div>" : "") +
+      '<div class="eg"><span class="egl">소속</span><button type="button" class="mini editmove">전출</button></div>' + "</div>" : "") +
     '<div class="attline' + (off ? " off" : "") + '">근태 · ' + esc(attText(d)) + "</div>" +
     (snackNow()[uOf(d)] ? '<div class="snkline">🍪 우리 팀 간식 당번 · ~' + md(snackNow()[uOf(d)].to) + (snackNow()[uOf(d)].items.length ? " · " + esc(snackNow()[uOf(d)].items.join(", ")) : "") + "</div>" : "") +
-    (canEdit ? jobEditor(d) + nickEditor(d) + titleEditor(d) + skillEditor(d) + statEditor(d) + healthEditor(d) + presEditor(d) + attEditor(d) + (d.ext ? "" : moveEditor(d)) + seatEditor(d) : "") +
+    (canEdit ? jobEditor(d) + nickEditor(d) + titleEditor(d) + skillEditor(d) + statEditor(d) + healthEditor(d) + presEditor(d) + attEditor(d) + moveEditor(d) + seatEditor(d) : "") +
     '<div class="tasks"><div class="mlabel">맡은 업무<b id="tcount"></b></div><ul class="tlist" id="tlist"></ul>' +
     (canEdit ? '<div class="jrow"><input id="tin" type="text" maxlength="60" placeholder="업무 추가 (Enter)" aria-label="업무 내용"><input id="tdue" class="tdue-in" type="date" min="' + todayStr() + '" aria-label="마감 기한 (선택)" title="마감 기한 (선택)"><button type="button" class="tadd">추가</button></div>' : "") +
     '<div class="jstatus" id="tstatus" role="status"></div></div>' +

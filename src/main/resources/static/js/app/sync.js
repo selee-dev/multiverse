@@ -26,6 +26,12 @@ if (window.claude && window.claude.use) {
       store.say = m;
       renderPlazaLog();
     }, function () {});
+    db.collection("saylog").onSnapshot(function (snap) {
+      var m = {};
+      snap.docs.forEach(function (doc) { var v = doc.data(); if (v && typeof v.p === "string" && typeof v.t === "string" && typeof v.at === "number") m[doc.id] = { p: v.p, t: v.t.slice(0, 100), at: v.at }; });
+      store.saylog = m;
+      renderPlazaLog();
+    }, function () {});
     var loaded = { tasks: false, meetings: false, projects: false, chat: false, seats: false, people: false };
     db.collection("people").onSnapshot(function (snap) {
       var m = {};

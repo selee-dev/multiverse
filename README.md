@@ -156,7 +156,7 @@ Maven Central에 연결할 수 없는 사내망에서는 Maven `settings.xml`에
 | 다른 계정의 캐릭터·문서 관리 | 불가 | 가능 |
 | 사장님 등장 상태 변경 | 가능 | 가능 |
 
-일반 계정은 `nicks`, `titles`, `skills`, `stats`, `health`, `tasks`, `pres`, `ot`, `seats`, `status`, `jobs`, `moves`, `say` 중 본인 캐릭터 ID에 해당하는 문서를 수정할 수 있습니다. `meetings`, `snacks`, `projects`는 로그인 사용자 모두 수정할 수 있습니다. 공용 설정 문서의 사장님 등장 상태는 별도 API를 통해 누구나 변경할 수 있습니다.
+일반 계정은 `nicks`, `titles`, `skills`, `stats`, `health`, `tasks`, `pres`, `ot`, `seats`, `status`, `jobs`, `moves`, `say` 중 본인 캐릭터 ID에 해당하는 문서를 수정할 수 있습니다. `meetings`, `snacks`, `projects`는 로그인 사용자 모두 수정할 수 있습니다. 광장 공개 대화 기록 `saylog`는 `<본인 캐릭터 id>_<시각>` 형식 id로만 쓸 수 있고 최근 300개만 보관합니다. `projects` 문서에 새로 넣는 인원은 현재 등록된 직원(계정 캐릭터 또는 직원 명단)이어야 하며, 아니면 `400`입니다. 공용 설정 문서의 사장님 등장 상태는 별도 API를 통해 누구나 변경할 수 있습니다.
 
 ## 저장 및 실시간 동기화
 
@@ -200,7 +200,7 @@ Maven Central에 연결할 수 없는 사내망에서는 Maven `settings.xml`에
 | `DELETE` | `/api/doc/{collection}/{id}` | 권한 확인 후 문서 삭제 |
 | `POST` | `/api/boss-visit` | `{ "enabled": true }`로 사장님 등장 상태 변경 |
 
-허용된 문서 컬렉션은 `people`, `nicks`, `titles`, `skills`, `stats`, `health`, `tasks`, `pres`, `ot`, `seats`, `meetings`, `projects`, `snacks`, `chat`, `cfg`, `jobs`, `moves`, `status`, `say`입니다. 문서 ID는 영문·숫자·`_`·`-` 조합의 1~60자이고, 본문은 JSON 객체이며 직렬화 후 최대 100,000자입니다. 유효하지 않은 입력은 `400`, 권한이 없는 문서 작업은 `403`을 반환합니다.
+허용된 문서 컬렉션은 `people`, `nicks`, `titles`, `skills`, `stats`, `health`, `tasks`, `pres`, `ot`, `seats`, `meetings`, `projects`, `snacks`, `chat`, `cfg`, `jobs`, `moves`, `status`, `say`, `saylog`입니다. 문서 ID는 영문·숫자·`_`·`-` 조합의 1~60자이고, 본문은 JSON 객체이며 직렬화 후 최대 100,000자입니다. 유효하지 않은 입력은 `400`, 권한이 없는 문서 작업은 `403`을 반환합니다.
 
 ### 개인·그룹 채팅
 

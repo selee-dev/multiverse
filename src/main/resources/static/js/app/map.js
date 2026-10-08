@@ -683,7 +683,7 @@ function updateBossWalker(dt) {
   b.dir = dx < 0 ? -1 : 1;
   b.x += dx / dist * step; b.y += dy / dist * step; b.moving = true; b.anim += dt;
 }
-function wanderOf(u) { return WORLD_THEME === "office" ? OFFICE : WORLD_THEME === "plaza" ? PLAZA_WALK : REGIONS[u] ? areaOf(u) : OFFICE; }
+function wanderOf(u) { return WORLD_THEME === "plaza" ? PLAZA_WALK : REGIONS[u] ? areaOf(u) : OFFICE; }
 function randIn(a) { return [a.x0 + Math.random() * (a.x1 - a.x0), a.y0 + Math.random() * (a.y1 - a.y0)]; }
 function deskFor(d) { return SEATNOW[jobId(d)] || null; }
 function applySeats(initial) {

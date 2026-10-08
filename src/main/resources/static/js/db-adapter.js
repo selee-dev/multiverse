@@ -201,8 +201,10 @@
     collection: function (col) { return query(col, null); },
     /* 위치 수신: cb({type:"snapshot", list:[{id,x,y,t,w,age}]}) 또는 cb({type:"pos", id,x,y,t,w,age}) */
     onPos: function (cb) { posListeners.push(cb); connectPos(); },
-    sendPos: function (id, x, y, w) {
-      if (posSocket && posSocket.readyState === 1) posSocket.send(JSON.stringify({ id: id, x: x, y: y, w: w }));
+    sendPos: function (id, x, y, w, e) {
+      var msg = { id: id, x: x, y: y, w: w };
+      if (e) msg.e = e;
+      if (posSocket && posSocket.readyState === 1) posSocket.send(JSON.stringify(msg));
     },
     adminAccounts: function () { return req("GET", API + "/admin/accounts"); },
     approveAccount: function (username) { return req("POST", API + "/admin/accounts/" + encodeURIComponent(username) + "/approve"); },

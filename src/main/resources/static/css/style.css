@@ -647,3 +647,21 @@ html:not(.booting) .boot-loader { display: none; }
 .jrow.sacts { align-items: center; }
 .jrow.sacts button { height: 26px; min-height: 0; padding: 0 10px; line-height: 1; }
 .jrow.sacts button.sedit { display: inline-block; margin: 0; }
+.greet-badge { align-self: flex-start; display: inline-flex; align-items: center; gap: 6px; min-height: 0; padding: 3px 12px; border: 1px solid var(--line); border-radius: 999px; background: var(--panel-2); color: var(--text); font-size: 12px; cursor: pointer; }
+.greet-badge:hover { border-color: var(--gold); color: var(--gold); }
+.greet-badge kbd { font: 700 10px var(--font-mono, monospace); border: 1px solid var(--line); border-radius: 4px; padding: 0 5px; color: var(--muted); }
+/* 광장 채팅 크기 조절: 왼쪽 가장자리(너비), 아래쪽 가장자리(높이) */
+.chat-resize-x { position: sticky; top: 0; z-index: 3; flex: none; width: 0; height: 0; margin: 0 0 -10px; }
+.chat-resize-x::before { content: ""; position: absolute; left: -12px; top: -12px; width: 9px; height: 3000px; cursor: ew-resize; touch-action: none; }
+.chat-resize-x:hover::before, .chat-resize-x.drag::before { background: color-mix(in srgb, var(--gold) 45%, transparent); }
+.chat-resize-y { position: sticky; bottom: -12px; z-index: 3; flex: none; height: 9px; margin: auto -12px -12px; cursor: ns-resize; touch-action: none; }
+.chat-resize-y:hover, .chat-resize-y.drag { background: color-mix(in srgb, var(--gold) 45%, transparent); }
+.plaza-chat.collapsed .chat-resize-x, .plaza-chat.collapsed .chat-resize-y { display: none; }
+@media (min-width: 901px) { .world:not(.chat-collapsed) { grid-template-columns: minmax(0, 1fr) var(--chat-w, 290px); } }
+@media (max-width: 900px) { .chat-resize-x { display: none; } }
+.world.chat-sized:not(.chat-collapsed) .plaza-chat { align-self: start; height: var(--chat-h); }
+/* 채팅 패널 전체가 아니라 대화 목록이 세로 여백에 맞춰 늘어나고 그 안에서만 스크롤되게 */
+.plaza-chat { overflow: hidden; }
+.plaza-chat:not(.collapsed) .plaza-body { overflow: hidden; }
+.plaza-chat .clist { flex: 1 1 0; min-height: 80px; max-height: none; overflow-y: auto; }
+.plaza-chat .plaza-group { flex: none; }

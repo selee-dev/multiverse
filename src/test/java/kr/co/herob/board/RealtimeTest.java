@@ -67,6 +67,27 @@ class RealtimeTest {
     }
 
     @Test
+    void 인사_동작은_다른_접속자에게만_전달되고_저장되지_않는다() throws Exception {
+        Client a = signUp("bowa"), b = signUp("bowb");
+        BlockingQueue<JsonNode> received = new LinkedBlockingQueue<>();
+        WebSocket wsB = openSocket(b, received);
+        assertEquals("snapshot", next(received).get("type").asText());
+        WebSocket wsA = openSocket(a, new LinkedBlockingQueue<>());
+        wsA.sendText("{\"id\":\"" + a.characterId() + "\",\"x\":120,\"y\":130,\"w\":\"office\",\"e\":\"bow\"}", true).join();
+        JsonNode pos = next(received);
+        assertEquals("pos", pos.get("type").asText());
+        assertEquals("bow", pos.get("e").asText());
+        Thread.sleep(150);
+        wsA.sendText("{\"id\":\"" + a.characterId() + "\",\"x\":121,\"y\":130,\"w\":\"office\",\"e\":\"dance\"}", true).join();
+        assertFalse(next(received).has("e"), "허용되지 않은 동작은 전달하지 않는다");
+        BlockingQueue<JsonNode> late = new LinkedBlockingQueue<>();
+        openSocket(signUp("bowc"), late);
+        for (JsonNode p : next(late).get("list")) assertFalse(p.has("e"), "스냅샷에는 동작이 없다");
+        wsA.abort();
+        wsB.abort();
+    }
+
+    @Test
     void 로그인하지_않으면_위치_채널에_접속할_수_없다() {
         BlockingQueue<JsonNode> received = new LinkedBlockingQueue<>();
         var future = http.newWebSocketBuilder().buildAsync(URI.create("ws://localhost:" + port + "/ws/pos"), listener(received));

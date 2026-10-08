@@ -296,6 +296,33 @@ function setPlazaCollapsed(collapsed) {
   try { localStorage.setItem("ops-chat-collapsed", collapsed ? "1" : "0"); } catch (e) {}
 }
 
+/* ---- 광장 채팅 크기 조절: 가장자리를 끌면 너비·높이가 바뀌고, 더블클릭하면 원래대로, 값은 브라우저에 저장 ---- */
+(function () {
+  var world = document.getElementById("world"), chat = document.getElementById("plaza-chat"), hx = document.getElementById("chat-resize-x"), hy = document.getElementById("chat-resize-y"), size = { w: 0, h: 0 };
+  if (!world || !chat || !hx || !hy) return;
+  try { var saved = JSON.parse(localStorage.getItem("ops-chat-size") || "{}"); size.w = +saved.w || 0; size.h = +saved.h || 0; } catch (e) {}
+  function clamp(v, lo, hi) { return Math.max(lo, Math.min(hi, v)); }
+  function apply() {
+    if (size.w) world.style.setProperty("--chat-w", size.w + "px"); else world.style.removeProperty("--chat-w");
+    if (size.h) { world.style.setProperty("--chat-h", size.h + "px"); world.classList.add("chat-sized"); } else { world.style.removeProperty("--chat-h"); world.classList.remove("chat-sized"); }
+  }
+  function save() { try { localStorage.setItem("ops-chat-size", JSON.stringify(size)); } catch (e) {} }
+  function drag(handle, move) {
+    handle.addEventListener("pointerdown", function (ev) {
+      var startX = ev.clientX, startY = ev.clientY, startW = chat.offsetWidth, startH = chat.offsetHeight;
+      ev.preventDefault(); handle.setPointerCapture(ev.pointerId); handle.classList.add("drag");
+      function onMove(e) { move(e, startX, startY, startW, startH); apply(); }
+      function onUp() { handle.classList.remove("drag"); handle.removeEventListener("pointermove", onMove); handle.removeEventListener("pointerup", onUp); handle.removeEventListener("pointercancel", onUp); save(); }
+      handle.addEventListener("pointermove", onMove); handle.addEventListener("pointerup", onUp); handle.addEventListener("pointercancel", onUp);
+    });
+  }
+  drag(hx, function (e, sx, sy, sw) { size.w = clamp(Math.round(sw + (sx - e.clientX)), 240, Math.max(240, Math.min(640, world.clientWidth - 380))); });
+  drag(hy, function (e, sx, sy, sw, sh) { size.h = clamp(Math.round(sh + (e.clientY - sy)), 380, 1400); });
+  hx.addEventListener("dblclick", function () { size.w = 0; apply(); save(); });
+  hy.addEventListener("dblclick", function () { size.h = 0; apply(); save(); });
+  apply();
+})();
+
 /* ---- 이벤트 연결 ---- */
 document.getElementById("plaza-to").addEventListener("click", function (event) {
   var b = event.target.closest("button"), picker = document.getElementById("plaza-group");

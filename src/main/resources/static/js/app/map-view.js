@@ -43,6 +43,22 @@ function shade(hex, k) {
   n = parseInt(m[1], 16);
   return (SHD[key] = "rgb(" + Math.round((n >> 16 & 255) * k) + "," + Math.round((n >> 8 & 255) * k) + "," + Math.round((n & 255) * k) + ")");
 }
+/* 인사하기: 허리(스프라이트 y=32)를 기준으로 머리·몸통을 오른쪽으로 숙여요 */
+function bowAngle(w) {
+  var t = Date.now() - (bowAt[w.id] || 0), p;
+  if (!bowAt[w.id] || t > 1800 || w.moving) return 0;
+  p = t < 400 ? t / 400 : t < 1300 ? 1 : 1 - (t - 1300) / 500;
+  p = p * p * (3 - 2 * p);
+  return p * Math.PI / 4;
+}
+function drawBowSprite(img, x, y, angle, h) {
+  var hip = 32;
+  mctx.save();
+  if (h > hip) mctx.drawImage(img, 0, hip, CW, h - hip, x, y + hip, CW, h - hip);
+  mctx.translate(x + CW / 2, y + hip); mctx.rotate(angle);
+  mctx.drawImage(img, 0, 0, CW, hip, -CW / 2, -hip, CW, hip);
+  mctx.restore();
+}
 function otBadge(x, y) {
   mctx.fillStyle = "#3b2a6b"; mctx.fillRect(x, y, 28, 14);
   mctx.strokeStyle = "#b79cff"; mctx.lineWidth = 1; mctx.strokeRect(x + 0.5, y + 0.5, 27, 13);
@@ -59,10 +75,23 @@ function drawHealthBattery(x, y, d, characterHeight) {
   if (value) mctx.fillRect(px + 2, py + 2, Math.round(15 * value / 100), 4);
   mctx.restore();
 }
-function drawMonitor(s, lit) {
+/* 야근 중인 모니터: 화면이 밝게 빛나고 주변으로 옅은 빛이 번져요 */
+function otFlicker(s) { return reduceMotion ? 0.85 : 0.78 + 0.22 * Math.sin(lastT / 210 + s.idx); }
+function drawMonitorGlow(s) {
+  var fl = otFlicker(s), g = mctx.createRadialGradient(s.cx, s.ry + 24, 4, s.cx, s.ry + 30, 62);
+  g.addColorStop(0, "rgba(159,232,255," + (0.34 * fl).toFixed(3) + ")"); g.addColorStop(1, "rgba(159,232,255,0)");
+  mctx.save(); mctx.fillStyle = g; mctx.fillRect(s.cx - 66, s.ry - 34, 132, 120); mctx.restore();
+}
+function drawMonitor(s, lit, ot) {
   var office = WORLD_THEME === "office";
   mctx.fillStyle = office ? "#22201e" : "#5b638f"; mctx.fillRect(s.cx - 18, s.ry + 12, 36, 21);
-  mctx.fillStyle = lit ? (office ? "#4c9b91" : "#2a8ea3") : (office ? "#151819" : "#141830"); mctx.fillRect(s.cx - 16, s.ry + 14, 32, 17);
+  if (lit && ot) {
+    mctx.save(); mctx.shadowColor = "#9fe8ff"; mctx.shadowBlur = 18 * otFlicker(s);
+    mctx.fillStyle = "#c9f6ff"; mctx.fillRect(s.cx - 16, s.ry + 14, 32, 17); mctx.restore();
+    mctx.fillStyle = "rgba(60,150,190,0.35)"; mctx.fillRect(s.cx - 12, s.ry + 18, 24, 2); mctx.fillRect(s.cx - 12, s.ry + 24, 17, 2);
+  } else {
+    mctx.fillStyle = lit ? (office ? "#4c9b91" : "#2a8ea3") : (office ? "#151819" : "#141830"); mctx.fillRect(s.cx - 16, s.ry + 14, 32, 17);
+  }
   mctx.fillStyle = office ? "#4c4944" : "#5b638f"; mctx.fillRect(s.cx - 3, s.ry + 33, 6, 4);
 }
 function drawDesk(s, tint, lit) {
@@ -174,9 +203,11 @@ function draw() {
       mctx.strokeRect(s.cx - 46, s.ry + 4, 92, 68); mctx.restore();
     }
     mctx.fillStyle = WORLD_THEME === "office" ? "#d7d0c4" : "#1e2340"; mctx.fillRect(s.cx - 16, s.ry + 14, 32, 26);
-    drawMonitor(s, s.kind === "pc" || sit);
-    if (sit) mctx.drawImage(spr[w.i][off ? 1 : 0][0], 0, 0, CW, 32, s.x, s.y, CW, 32);
+    var glow = sit && on && !off && d && isOT(d);
+    drawMonitor(s, s.kind === "pc" || sit, glow);
+    if (sit) { var seatImg = spr[w.i][off ? 1 : 0][0], seatBow = bowAngle(w); if (seatBow) drawBowSprite(seatImg, s.x, s.y, seatBow, 32); else mctx.drawImage(seatImg, 0, 0, CW, 32, s.x, s.y, CW, 32); }
     drawDesk(s, tint, s.kind === "pc");
+    if (glow) drawMonitorGlow(s);
     if (d && sn[uOf(d)] && !off) { var its = sn[uOf(d)].items; if (its.length) mctx.drawImage(foodIcon(its[s.idx % its.length]), s.cx + 24, s.ry + 44); }
     if (d && pidCount[nm]) {
       var t = "침입 " + pidCount[nm];
@@ -203,9 +234,11 @@ function draw() {
     var d = DATA[w.i], on = mapOn(d), off = onLeave(d, today), gn = w.mode === "gone";
     var ph = Math.floor(w.anim * 5), fr = w.moving ? (ph % 2 ? 1 : 2) : 0, bob = w.moving && ph % 2 ? 2 : 0;
     var x = Math.round(w.x), y = Math.round(w.y) - bob, sitting = w.seat && !w.route.length && Math.abs(w.x - w.seat.x) < 2 && Math.abs(w.y - w.seat.y) < 2;
-    mctx.globalAlpha = on ? (gn ? 0.4 : 1) : 0.22;
-    if (sitting) mctx.drawImage(spr[w.i][off ? 1 : 0][0], 0, 0, CW, 32, x, y, CW, 32);
-    else mctx.drawImage(spr[w.i][off ? 1 : 0][fr], x, y);
+    mctx.globalAlpha = on ? 1 : 0.22;
+    var wImg = spr[w.i][off || gn ? 1 : 0][sitting ? 0 : fr], wBow = bowAngle(w);
+    if (wBow) drawBowSprite(wImg, x, y, wBow, sitting ? 32 : CH);
+    else if (sitting) mctx.drawImage(wImg, 0, 0, CW, 32, x, y, CW, 32);
+    else mctx.drawImage(wImg, x, y);
     if (on) drawHealthBattery(x, y, d);
     if (w.mode === "away" && w.tag === "lunch") {
       if (WORLD_THEME !== "battlefield") mctx.drawImage(foodIcon("밥"), x + CW - 8, y + 8 + Math.round(Math.sin(lastT / 260 + w.i) * 3));

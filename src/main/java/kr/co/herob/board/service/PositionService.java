@@ -45,7 +45,10 @@ public class PositionService {
         Pos pos = new Pos(message.get("id").asText(), Math.round(message.get("x").asDouble()),
             Math.round(message.get("y").asDouble()), now, message.get("w").asText());
         positions.put(pos.id(), pos);
-        return toNode("pos", pos, now);
+        ObjectNode node = toNode("pos", pos, now);
+        // 인사 같은 일회성 동작은 저장하지 않고 이번 브로드캐스트에만 실어 보냅니다.
+        if ("bow".equals(message.path("e").asText())) node.put("e", "bow");
+        return node;
     }
 
     /** 새로 접속한 클라이언트에게 보낼 현재 위치 목록입니다. 각 항목에 경과 시간(age)을 담습니다. */

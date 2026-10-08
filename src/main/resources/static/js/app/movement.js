@@ -3,6 +3,7 @@
 var autoMoveOn = false, posLoaded = false;
 try { autoMoveOn = localStorage.getItem("ops-automove") === "on"; } catch (e) {}
 var POS_LIVE_MS = 8000, POS_TTL_MS = 12 * 3600 * 1000, KEY_SPEED = 120, POS_SEND_MS = 400, SHOP_COOLDOWN_MS = 1500;
+var bowAt = {}, bowCool = 0;
 var keys = { up: false, down: false, left: false, right: false }, posSeen = {}, posSentAt = 0, nearShop = null, shopOpenAt = 0, shopNotice = "", shopNoticeAt = 0;
 function ownWalker() { var i = currentCharacterIndex(); return i >= 0 ? walkers[i] || null : null; }
 function posOf(w) {
@@ -10,10 +11,10 @@ function posOf(w) {
   return p && p.w === WORLD_THEME && typeof p.x === "number" && typeof p.y === "number" && Date.now() - (+p.t || 0) < POS_TTL_MS ? p : null;
 }
 function posLive(id) { var seen = posSeen[id]; return !!seen && Date.now() - seen.at < POS_LIVE_MS; }
-function sendPos(w) {
+function sendPos(w, emote) {
   var doc = { x: Math.round(w.x), y: Math.round(w.y), t: Date.now(), w: WORLD_THEME };
   store.pos[w.id] = doc; w.posT = doc.t; posSentAt = doc.t; posSeen[w.id] = { t: doc.t, at: doc.t };
-  if (dbRef) dbRef.sendPos(w.id, doc.x, doc.y, doc.w);   // WebSocket 위치 채널(DB 저장 없음)
+  if (dbRef) dbRef.sendPos(w.id, doc.x, doc.y, doc.w, emote);   // WebSocket 위치 채널(DB 저장 없음)
   else { try { localStorage.setItem("ops-pos", JSON.stringify(store.pos)); } catch (e) {} }
 }
 function inSeatArea(w) {
@@ -63,12 +64,20 @@ function openShop(shop) {
   win = window.open(shop.url, "_blank", "noopener,noreferrer");
   if (!win) { shopNotice = "팝업이 차단되었어요. 팝업을 허용해 주세요"; shopNoticeAt = now; }
 }
+/** 인사하기: 내 캐릭터가 허리를 숙이는 모션을 하고, 위치 채널로 다른 사람 화면에도 알려요 */
+function greet() {
+  var me = ownWalker(), st = document.getElementById("plaza-status"), now = Date.now();
+  if (!me) { if (st) st.textContent = "내 캐릭터가 있어야 인사할 수 있어요."; return; }
+  if (me.mode === "gone" || me.mode === "leave" || now - bowCool < 1800) return;
+  bowCool = now; bowAt[me.id] = now; sendPos(me, "bow");
+}
 var KEYMAP = { ArrowUp: "up", ArrowDown: "down", ArrowLeft: "left", ArrowRight: "right" };
 function typingTarget(t) { var n = t && t.tagName; return n === "INPUT" || n === "TEXTAREA" || n === "SELECT" || !!(t && t.isContentEditable); }
 function worldActive() { var el = document.getElementById("world"); return !!el && !el.hidden; }
 document.addEventListener("keydown", function (e) {
   var k = KEYMAP[e.key];
   if (e.ctrlKey || e.metaKey || e.altKey || typingTarget(e.target) || !worldActive()) return;
+  if (e.code === "KeyH" && !e.repeat) { e.preventDefault(); greet(); return; }
   if (k) { var me = ownWalker(); if (!me) return; if (!inActiveMeeting(DATA[me.i])) keys[k] = true; e.preventDefault(); return; }
   if (e.key === "Enter" && !e.repeat && nearShop && !/^(BUTTON|A)$/.test(e.target.tagName)) { e.preventDefault(); openShop(nearShop); }
 });
@@ -77,6 +86,7 @@ document.addEventListener("click", function (e) {
   var b = e.target.closest && e.target.closest("button");
   if (b && e.detail > 0 && worldActive()) setTimeout(function () { if (document.activeElement === b) b.blur(); }, 0);
 });
+document.getElementById("greet-badge").addEventListener("click", greet);
 document.addEventListener("keyup", function (e) { var k = KEYMAP[e.key]; if (k) keys[k] = false; });
 window.addEventListener("blur", function () { keys.up = keys.down = keys.left = keys.right = false; });
 function update(dt) {

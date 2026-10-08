@@ -71,7 +71,7 @@ if (window.claude && window.claude.use) {
       if (msg.type === "snapshot" && Array.isArray(msg.list)) {
         msg.list.forEach(function (v) { takePos(v, now); });
         posLoaded = true;
-      } else if (msg.type === "pos") takePos(msg, now);
+      } else if (msg.type === "pos") { takePos(msg, now); if (msg.e === "bow") bowAt[msg.id] = now; }
     });
     db.collection("jobs").onSnapshot(function (snap) {
       var m = {};

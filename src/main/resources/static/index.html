@@ -93,6 +93,7 @@
       </div>
     </div>
     <aside class="plaza-chat" id="plaza-chat" aria-label="채팅">
+      <div class="chat-resize-x" id="chat-resize-x" role="separator" aria-orientation="vertical" aria-label="채팅 너비 조절 (더블클릭하면 원래대로)" title="끌어서 너비 조절 · 더블클릭하면 원래대로"></div>
       <div class="plaza-head"><h3>채팅</h3><button type="button" id="plaza-toggle" aria-expanded="true" aria-controls="plaza-body">접기 ▲</button></div>
       <div class="plaza-body" id="plaza-body">
         <div class="mlabel">대화방</div>
@@ -107,7 +108,9 @@
         <div class="clist" id="plaza-log" role="log" aria-live="polite"></div>
         <div class="jrow"><textarea id="plaza-input" rows="1" maxlength="500" placeholder="메시지 (Enter 전송 · Shift+Enter 줄바꿈)" aria-label="채팅 메시지" autocomplete="off"></textarea><button type="button" id="plaza-send" class="jsave">보내기</button></div>
         <div class="jstatus" id="plaza-status" role="status"></div>
+        <button type="button" id="greet-badge" class="greet-badge" aria-label="인사하기 (단축키 H)">👋 인사하기 <kbd>H</kbd></button>
       </div>
+      <div class="chat-resize-y" id="chat-resize-y" role="separator" aria-orientation="horizontal" aria-label="채팅 높이 조절 (더블클릭하면 원래대로)" title="끌어서 높이 조절 · 더블클릭하면 원래대로"></div>
     </aside>
     <div class="wcontrols">
       <label><input type="checkbox" id="names" checked> 이름 표시</label>
@@ -238,22 +241,22 @@
 <script src="js/auth.js?v=20261012-1"></script>
 <script src="js/db-adapter.js?v=20261012-2"></script>
 <!-- 아래 파일들은 한 전역 스코프를 공유하는 일반 스크립트이므로 순서가 곧 실행 순서입니다. -->
-<script src="js/app/core.js?v=20261014-1"></script>
-<script src="js/app/audio.js?v=20261014-1"></script>
-<script src="js/app/roster.js?v=20261014-1"></script>
-<script src="js/app/map.js?v=20261014-1"></script>
-<script src="js/app/world-sync.js?v=20261014-1"></script>
-<script src="js/app/movement.js?v=20261014-1"></script>
-<script src="js/app/map-view.js?v=20261014-1"></script>
-<script src="js/app/meetings.js?v=20261014-1"></script>
-<script src="js/app/projects.js?v=20261014-1"></script>
-<script src="js/app/snacks.js?v=20261014-1"></script>
-<script src="js/app/chat.js?v=20261014-1"></script>
-<script src="js/app/tabalert.js?v=20261014-1"></script>
-<script src="js/app/bubbles.js?v=20261014-1"></script>
-<script src="js/app/team.js?v=20261014-1"></script>
-<script src="js/app/views.js?v=20261014-1"></script>
-<script src="js/app/settings.js?v=20261014-1"></script>
-<script src="js/app/sync.js?v=20261014-1"></script>
+<script src="js/app/core.js?v=20261014-5"></script>
+<script src="js/app/audio.js?v=20261014-5"></script>
+<script src="js/app/roster.js?v=20261014-5"></script>
+<script src="js/app/map.js?v=20261014-5"></script>
+<script src="js/app/world-sync.js?v=20261014-5"></script>
+<script src="js/app/movement.js?v=20261014-5"></script>
+<script src="js/app/map-view.js?v=20261014-5"></script>
+<script src="js/app/meetings.js?v=20261014-5"></script>
+<script src="js/app/projects.js?v=20261014-5"></script>
+<script src="js/app/snacks.js?v=20261014-5"></script>
+<script src="js/app/chat.js?v=20261014-5"></script>
+<script src="js/app/tabalert.js?v=20261014-5"></script>
+<script src="js/app/bubbles.js?v=20261014-5"></script>
+<script src="js/app/team.js?v=20261014-5"></script>
+<script src="js/app/views.js?v=20261014-5"></script>
+<script src="js/app/settings.js?v=20261014-5"></script>
+<script src="js/app/sync.js?v=20261014-5"></script>
 
 </body></html>

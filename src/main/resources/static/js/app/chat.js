@@ -29,19 +29,26 @@ function characterName(id) {
   var d = DATA.filter(function (item) { return jobId(item) === id; })[0];
   return d ? d.n : id;
 }
+/** 화면에는 로그인 아이디 대신 캐릭터 이름만 보여줘요. 이름이 같은 사람이 있으면 소속 팀을 덧붙여 구분합니다. */
+function contactLabel(contact) {
+  var same = privateContacts.filter(function (c) { return c.name === contact.name; }).length > 1, d;
+  if (!same) return contact.name;
+  d = DATA.filter(function (item) { return item.id === contact.characterId; })[0];
+  return d && UNI[uOf(d)] ? contact.name + " · " + UNI[uOf(d)].realm : contact.name;
+}
 function contactName(username) {
   if (username === currentUser) {
     var mine = DATA.filter(function (d) { return d.id === currentCharacterId; })[0];
-    return (mine ? mine.n : currentUser) + " (나)";
+    return (mine ? mine.n : "나") + " (나)";
   }
   var contact = contactOf(username);
-  return contact ? contact.name + " (" + username + ")" : username;
+  return contact ? contactLabel(contact) : "알 수 없는 사용자";
 }
 /** 연락처 체크박스 목록. selected = { username: true } 인 항목은 체크된 채로 유지합니다. */
 function contactChecklistHtml(selected) {
   selected = selected || {};
   return privateContacts.map(function (contact) {
-    return '<label class="private-contact"><input type="checkbox" value="' + esc(contact.username) + '"' + (selected[contact.username] ? " checked" : "") + '><span>' + esc(contact.name) + " · " + esc(contact.username) + "</span></label>";
+    return '<label class="private-contact"><input type="checkbox" value="' + esc(contact.username) + '"' + (selected[contact.username] ? " checked" : "") + '><span>' + esc(contactLabel(contact)) + "</span></label>";
   }).join("") || '<p class="private-contact-empty">대화할 사용자가 없습니다.</p>';
 }
 function checkedValues(selector) {
@@ -220,7 +227,7 @@ function sendPrivateChat() {
 /* ---- 광장 오른쪽 채팅 패널: 전체(말풍선) · 귓속말 · 단체방 ---- */
 var plazaQuery = "", plazaTo = "", plazaSeen = {}, plazaSending = { v: false }, plazaStart = Date.now();
 function plazaRoomName(key) {
-  return key.split("|").map(function (u) { var c = contactOf(u); return c ? c.name : u; }).join(", ");
+  return key.split("|").map(function (u) { var c = contactOf(u); return c ? contactLabel(c) : "알 수 없는 사용자"; }).join(", ");
 }
 function renderPlazaRecipients() {
   var box = document.getElementById("plaza-to"), input = document.getElementById("plaza-input"), keys = {}, lastIn = {}, h;
@@ -228,9 +235,9 @@ function renderPlazaRecipients() {
   privateContacts.forEach(function (c) { keys[c.username] = true; });
   privateRooms().forEach(function (r) { if (r.key) keys[r.key] = true; lastIn[r.key] = r.lastIncoming; });
   if (plazaTo) keys[plazaTo] = true;
-  h = '<button type="button" data-to="" aria-pressed="' + !plazaTo + '">전체</button>' + Object.keys(keys).sort().filter(function (k) { var q = plazaQuery; return !q || k === plazaTo || (plazaRoomName(k) + " " + k).toLowerCase().indexOf(q) >= 0; }).map(function (k) {
+  h = '<button type="button" data-to="" aria-pressed="' + !plazaTo + '">전체</button>' + Object.keys(keys).sort().filter(function (k) { var q = plazaQuery; return !q || k === plazaTo || plazaRoomName(k).toLowerCase().indexOf(q) >= 0; }).map(function (k) {
     var unread = k !== plazaTo && (lastIn[k] || 0) > (plazaSeen[k] || plazaStart), group = k.indexOf("|") >= 0;
-    return '<button type="button" data-to="' + esc(k) + '" class="' + (unread ? "unread" : "") + '" aria-pressed="' + (k === plazaTo) + '" title="' + esc(k.split("|").join(", ")) + '">' + (group ? "👥 " : "🔒 ") + esc(plazaRoomName(k)) + "</button>";
+    return '<button type="button" data-to="' + esc(k) + '" class="' + (unread ? "unread" : "") + '" aria-pressed="' + (k === plazaTo) + '" title="' + esc(plazaRoomName(k)) + '">' + (group ? "👥 " : "🔒 ") + esc(plazaRoomName(k)) + "</button>";
   }).join("") + '<button type="button" data-act="group" class="plaza-newgroup">＋ 단체방</button>';
   box.innerHTML = h;
   input.placeholder = (!plazaTo ? "말풍선 · 모두에게 보여요" : plazaTo.indexOf("|") >= 0 ? "단체방 · 참여자에게만 보여요" : "귓속말 · 상대에게만 보여요") + " (Enter 전송 · Shift+Enter 줄바꿈)";

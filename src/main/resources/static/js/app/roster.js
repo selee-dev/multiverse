@@ -412,6 +412,8 @@ function snackNow() {
     if (s.to > o.to) o.to = s.to;
     (Array.isArray(s.items) ? s.items : []).forEach(function (it) { it = String(it); if (o.items.indexOf(it) < 0 && o.items.length < 6) o.items.push(it); });
   });
+  /* 먹을거리를 따로 고르지 않으므로 간식 당번 팀에는 기본으로 쿠키를 놓아요 */
+  Object.keys(out).forEach(function (u) { if (!out[u].items.length) out[u].items.push("쿠키"); });
   return out;
 }
 
